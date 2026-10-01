@@ -38,7 +38,6 @@ struct MenuBarView: View {
         .frame(width: 360)
         .background(LinearGradient(colors: ModuleTheme.smart.gradient, startPoint: .top, endPoint: .bottom))
         .onAppear { syncFan() }
-        .onChange(of: model.thermal.fans.first?.actual) { _, _ in if !manual { syncFan() } }
     }
 
     private var header: some View {
@@ -84,16 +83,16 @@ struct MenuBarView: View {
                 }
                 Spacer()
                 if model.fanBusy { ProgressView().controlSize(.small) }
-                Toggle("Manual", isOn: $manual).toggleStyle(.switch).controlSize(.mini)
-                    .onChange(of: manual) { _, on in if !on { model.setFan(0, rpm: nil) } }
+                Button(manual ? "Hide" : "Set speed") { manual.toggle(); if manual { syncFan() } }.buttonStyle(SecondaryButtonStyle()).controlSize(.small)
             }
             if let fan = model.thermal.fans.first, manual {
                 HStack(spacing: 8) {
                     Slider(value: $fanTarget, in: fan.minimum...max(fan.maximum, fan.minimum + 1), step: 100)
                     Text("\(Int(fanTarget))").font(.caption.monospacedDigit()).frame(width: 40)
-                    Button("Apply") { model.setFan(0, rpm: Int(fanTarget)) }.buttonStyle(SecondaryButtonStyle()).controlSize(.small)
+                    Button("Apply") { model.setFan(0, rpm: Int(fanTarget)) }.buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(model.fanBusy)
+                    Button("Auto") { model.setFan(0, rpm: nil) }.buttonStyle(SecondaryButtonStyle()).controlSize(.small).disabled(model.fanBusy)
                 }
-                Text("Needs your password once per change. Auto hands control back to macOS.").font(.caption2).foregroundStyle(.secondary)
+                Text("Apply and Auto each ask your password once. Nothing happens until you click one.").font(.caption2).foregroundStyle(.secondary)
             }
             if let e = model.fanError { Text(e).font(.caption2).foregroundStyle(.orange) }
         }
@@ -103,7 +102,6 @@ struct MenuBarView: View {
     private func syncFan() {
         if let fan = model.thermal.fans.first {
             fanTarget = fan.target > 0 ? fan.target : fan.actual
-            manual = fan.isManual
         }
     }
 

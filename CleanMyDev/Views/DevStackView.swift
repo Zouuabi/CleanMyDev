@@ -28,22 +28,8 @@ struct DevStackView: View {
                 Spacer(); Text("Nothing found yet").foregroundStyle(.secondary); Spacer()
             } else if showMap {
                 groupChips.padding(.horizontal, 28).padding(.bottom, 10)
-                HStack(spacing: 14) {
-                    BubbleMap(bubbles: rows.filter { $0.bytes > 0 }.map { i in
-                        Bubble(id: i.id, label: i.name, sublabel: i.formattedSize, bytes: i.bytes, tint: Self.tint(i.group), symbol: i.group.systemImage)
-                    }, selected: $picked)
-                    .glassCard(radius: 22)
-                    if let id = picked, let item = model.devStack.first(where: { $0.id == id }) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            row(item)
-                            if let h = item.hint { Text(h).font(.caption).foregroundStyle(.orange) }
-                            Spacer()
-                        }
-                        .frame(width: 340).transition(.move(edge: .trailing).combined(with: .opacity))
-                    }
-                }
-                .padding(.horizontal, 28).padding(.bottom, 24)
-                .animation(.spring(duration: 0.4), value: picked)
+                RadialMapView(root: DevStackMap.root(model, items: rows.filter { $0.bytes > 0 })) { n in DevStackMap.panel(model, n) }
+                    .padding(.horizontal, 28).padding(.bottom, 24)
             } else {
                 groupChips.padding(.horizontal, 28).padding(.bottom, 10)
                 ScrollView {
@@ -162,6 +148,8 @@ struct DevStackView: View {
         .frame(width: 50)
     }
 
+    static func tintFor(_ g: DevStackItem.Group) -> Color { DevStackMap.tint(g) }
+
     static func tint(_ g: DevStackItem.Group) -> Color {
         switch g {
         case .databases: Color(hex: 0x2DD4BF)
@@ -184,5 +172,49 @@ struct DevStackView: View {
         }
         return Text(s.rawValue).font(.caption2.weight(.semibold)).padding(.horizontal, 6).padding(.vertical, 2)
             .background(tint.opacity(0.18), in: Capsule()).foregroundStyle(tint)
+    }
+}
+
+
+/// Side-panel card for one Dev Stack item: path, hint, and the same actions as the list row.
+struct DevStackItemCard: View {
+    @Environment(AppModel.self) private var model
+    let item: DevStackItem
+    @State private var confirm = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(item.detail).font(.caption).foregroundStyle(.secondary)
+            if !item.path.hasPrefix("docker://") {
+                Text(item.path.replacingOccurrences(of: CMConstants.homePath, with: "~")).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(3)
+            }
+            HStack {
+                if item.bytes > 0 { SizeText(bytes: item.bytes, font: .title3.weight(.bold)) }
+                Spacer()
+                if let m = item.modified { Text("modified \(m.relativeDescription)").font(.caption2).foregroundStyle(.secondary) }
+            }
+            if let h = item.hint { Text(h).font(.caption).foregroundStyle(.orange) }
+            HStack(spacing: 8) {
+                if !item.path.hasPrefix("docker://") && item.path != "?" {
+                    Button { NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: item.path)]) } label: { Label("Reveal", systemImage: "magnifyingglass") }.buttonStyle(SecondaryButtonStyle())
+                }
+                switch item.removal {
+                case .quarantinePath:
+                    Button { confirm = true } label: { Label("Quarantine", systemImage: "archivebox") }.buttonStyle(SecondaryButtonStyle())
+                case .command(let cmd):
+                    Button {
+                        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(cmd, forType: .string)
+                    } label: { Label("Copy uninstall command", systemImage: "doc.on.clipboard") }.buttonStyle(SecondaryButtonStyle())
+                case .never:
+                    Label("Data, never deleted by CleanMyDev", systemImage: "lock").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+        }
+        .confirmationDialog("Move \(item.name) to quarantine?", isPresented: $confirm) {
+            Button("Quarantine \(item.formattedSize)", role: .destructive) {
+                Task { _ = await model.quarantine(paths: [URL(filePath: item.path)], label: "Dev Stack · \(item.name)"); model.loadDevStack() }
+            }
+        }
     }
 }

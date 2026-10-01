@@ -36,19 +36,8 @@ struct ProjectsView: View {
             } else {
                 summaryChips.padding(.horizontal, 28).padding(.bottom, 10)
                 if showMap {
-                    HStack(spacing: 14) {
-                        BubbleMap(bubbles: rows.map { e in
-                            Bubble(id: e.id, label: e.project.name, sublabel: e.project.formattedArtifactSize, bytes: max(e.project.totalArtifactBytes, 1),
-                                   tint: e.decision.status.tint, symbol: e.decision.status.systemImage)
-                        }, selected: $picked)
-                        .glassCard(radius: 22)
-                        if let id = picked, let e = model.projects.first(where: { $0.id == id }) {
-                            ScrollView { ProjectRow(entry: e, startExpanded: true) }.frame(width: 360)
-                                .transition(.move(edge: .trailing).combined(with: .opacity))
-                        }
-                    }
-                    .padding(.horizontal, 28).padding(.bottom, 24)
-                    .animation(.spring(duration: 0.4), value: picked)
+                    ProjectsMapScreen(entries: rows)
+                        .padding(.horizontal, 28).padding(.bottom, 24)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 10) {
@@ -107,6 +96,14 @@ struct ProjectsView: View {
             .foregroundStyle(filter == s ? (s?.tint ?? .white) : .white.opacity(0.8))
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct ProjectsMapScreen: View {
+    @Environment(AppModel.self) private var model
+    let entries: [ProjectScanService.Entry]
+    var body: some View {
+        RadialMapView(root: ProjectsMap.root(model, entries: entries)) { n in ProjectsMap.panel(model, n) }
     }
 }
 
