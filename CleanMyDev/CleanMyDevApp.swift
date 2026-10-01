@@ -33,7 +33,7 @@ struct CleanMyDevApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1280, height: 820)
 
-        MenuBarExtra(isInserted: Binding(get: { model.settings.menuBarEnabled }, set: { if model.settings.menuBarEnabled != $0 { model.settings.menuBarEnabled = $0 } })) {
+        MenuBarExtra(isInserted: Binding(get: { model.settings.menuBarEnabled && gate.hasFullDiskAccess }, set: { if model.settings.menuBarEnabled != $0 { model.settings.menuBarEnabled = $0 } })) {
             MenuBarView().environment(model)
         } label: {
             HStack(spacing: 4) {
