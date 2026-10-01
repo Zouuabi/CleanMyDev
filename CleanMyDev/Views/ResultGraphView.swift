@@ -131,11 +131,11 @@ enum ProjectsMap {
             guard !group.isEmpty else { return nil }
             let bytes = group.reduce(0) { $0 + $1.project.totalArtifactBytes }
             return MapNode(id: "ps:\(status.rawValue)", title: status.displayName, subtitle: "\(group.count) · \(ByteFormatter.string(bytes))", bytes: max(bytes, 1),
-                           symbol: status.systemImage, tint: status.tint, review: !status.allowsCleaning, payload: .projectStatus(status),
+                           symbol: status.systemImage, tint: status.tint, review: false, payload: .projectStatus(status),
                            children: group.map { e in
                                MapNode(id: "p:\(e.id)", title: e.project.name, subtitle: e.project.formattedArtifactSize, bytes: max(e.project.totalArtifactBytes, 1),
                                        symbol: e.project.kinds.first?.symbol ?? "folder", tint: status.tint, review: !status.allowsCleaning, payload: .project(e.id))
-                           })
+                           }, fanOut: false)
         }
     }
 
@@ -151,7 +151,7 @@ enum ProjectsMap {
                            children: group.map { e in
                                MapNode(id: "p:\(e.id)", title: e.project.name, subtitle: e.project.formattedArtifactSize, bytes: max(e.project.totalArtifactBytes, 1),
                                        symbol: e.project.kinds.first?.symbol ?? "folder", tint: status.tint, review: !status.allowsCleaning, payload: .project(e.id))
-                           })
+                           }, fanOut: false)
         }
         return MapNode(id: "root:projects", title: "Projects", subtitle: "\(entries.count) · \(ByteFormatter.string(total))", bytes: total,
                        symbol: "folder.badge.gearshape", tint: ModuleTheme.developer.accent, children: groups)
@@ -161,15 +161,59 @@ enum ProjectsMap {
     static func panel(_ model: AppModel, _ n: MapNode) -> some View {
         switch n.payload {
         case .projectStatus(let status):
-            let entries = model.projects.filter { $0.decision.status == status }
-            ScrollView { VStack(spacing: 8) { ForEach(entries) { ProjectChipCard(entry: $0) } } }
-            Button("Open Projects") { model.selection = .projects }.buttonStyle(PrimaryButtonStyle(tint: ModuleTheme.developer.accent))
+            ProjectGroupPanel(status: status)
         case .project(let id):
             if let e = model.projects.first(where: { $0.id == id }) {
                 ProjectDetailCard(entry: e)
             }
         default: EmptyView()
         }
+    }
+}
+
+/// Members of a status group as a list; click one to slide into its detail.
+struct ProjectGroupPanel: View {
+    @Environment(AppModel.self) private var model
+    let status: ProjectStatus
+    @State private var detail: String? = nil
+
+    var body: some View {
+        let entries = model.projects.filter { $0.decision.status == status }.sorted { $0.project.totalArtifactBytes > $1.project.totalArtifactBytes }
+        ZStack {
+            if let id = detail, let e = entries.first(where: { $0.id == id }) ?? model.projects.first(where: { $0.id == id }) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button { withAnimation(.spring(duration: 0.35)) { detail = nil } } label: { Label(status.displayName, systemImage: "chevron.left").font(.caption.weight(.semibold)) }.buttonStyle(.plain).foregroundStyle(.white.opacity(0.8))
+                    Text(e.project.name).font(.headline)
+                    ProjectDetailCard(entry: e)
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(entries) { e in
+                            Button { withAnimation(.spring(duration: 0.35)) { detail = e.id }; SoundFX.tap() } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: e.project.kinds.first?.symbol ?? "folder").foregroundStyle(status.tint).frame(width: 18)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(e.project.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                        Text(e.decision.reason).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                    }
+                                    Spacer()
+                                    Text(e.project.formattedArtifactSize).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                                }
+                                .padding(.horizontal, 10).padding(.vertical, 8)
+                                .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+        }
+        .onChange(of: status) { _, _ in detail = nil }
     }
 }
 
@@ -204,7 +248,7 @@ enum DevStackMap {
                            children: list.map { i in
                                MapNode(id: "di:\(i.id)", title: i.name, subtitle: i.formattedSize, bytes: max(i.bytes, 1), symbol: g.systemImage, tint: tint(g),
                                        review: i.removal == .never, payload: .devItem(i.id))
-                           })
+                           }, fanOut: false)
         }
     }
 
@@ -218,23 +262,7 @@ enum DevStackMap {
     static func panel(_ model: AppModel, _ n: MapNode) -> some View {
         switch n.payload {
         case .devGroup(let g):
-            let items = model.devStack.filter { $0.group == g }.sorted { $0.bytes > $1.bytes }
-            ScrollView {
-                VStack(spacing: 6) {
-                    ForEach(items.prefix(60)) { item in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(item.name).font(.caption.weight(.semibold)).lineLimit(1)
-                                Text(item.detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                            }
-                            Spacer()
-                            Text(item.formattedSize).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                        }
-                        .padding(8).background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-                    }
-                }
-            }
-            Button("Open Dev Stack") { model.selection = .devStack }.buttonStyle(PrimaryButtonStyle(tint: ModuleTheme.files.accent))
+            DevGroupPanel(group: g)
         case .devItem(let id):
             if let item = model.devStack.first(where: { $0.id == id }) {
                 DevStackItemCard(item: item)
@@ -287,5 +315,58 @@ struct ProjectDetailCard: View {
                 }
             }
         }
+    }
+}
+
+
+/// Members of a Dev Stack group as a list; click one to slide into its card.
+struct DevGroupPanel: View {
+    @Environment(AppModel.self) private var model
+    let group: DevStackItem.Group
+    @State private var detail: String? = nil
+    @State private var filter = ""
+
+    var body: some View {
+        let items = model.devStack.filter { $0.group == group && (filter.isEmpty || $0.name.localizedCaseInsensitiveContains(filter)) }.sorted { $0.bytes > $1.bytes }
+        ZStack {
+            if let id = detail, let item = model.devStack.first(where: { $0.id == id }) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button { withAnimation(.spring(duration: 0.35)) { detail = nil } } label: { Label(group.displayName, systemImage: "chevron.left").font(.caption.weight(.semibold)) }.buttonStyle(.plain).foregroundStyle(.white.opacity(0.8))
+                    Text(item.name).font(.headline)
+                    DevStackItemCard(item: item)
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                VStack(spacing: 8) {
+                    if model.devStack.filter({ $0.group == group }).count > 12 {
+                        TextField("Filter", text: $filter).textFieldStyle(.roundedBorder)
+                    }
+                    ScrollView {
+                        VStack(spacing: 4) {
+                            ForEach(items) { item in
+                                Button { withAnimation(.spring(duration: 0.35)) { detail = item.id }; SoundFX.tap() } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: group.systemImage).foregroundStyle(DevStackMap.tint(group)).frame(width: 18)
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(item.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                                            Text(item.detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                        }
+                                        Spacer()
+                                        Text(item.formattedSize).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                                        Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                                    }
+                                    .padding(.horizontal, 10).padding(.vertical, 8)
+                                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+        }
+        .onChange(of: group) { _, _ in detail = nil }
     }
 }

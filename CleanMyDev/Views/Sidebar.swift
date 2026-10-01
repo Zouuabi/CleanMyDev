@@ -52,18 +52,18 @@ enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
     var symbol: String {
         switch self {
         case .smartCare: "sparkles"
-        case .projects: "folder.badge.gearshape"
-        case .devStack: "cylinder.split.1x2"
-        case .systemJunk: "trash.circle"
-        case .devJunk: "shippingbox"
-        case .docker: "cube.transparent"
-        case .browsers: "safari"
+        case .projects: "folder.fill.badge.gearshape"
+        case .devStack: "cylinder.split.1x2.fill"
+        case .systemJunk: "trash.circle.fill"
+        case .devJunk: "shippingbox.fill"
+        case .docker: "cube.transparent.fill"
+        case .browsers: "safari.fill"
         case .security: "shield.lefthalf.filled"
-        case .uninstaller: "square.grid.2x2"
-        case .spaceLens: "chart.pie"
-        case .quarantine: "archivebox"
-        case .largeFiles: "doc.richtext"
-        case .startupItems: "power.circle"
+        case .uninstaller: "square.grid.2x2.fill"
+        case .spaceLens: "chart.pie.fill"
+        case .quarantine: "archivebox.fill"
+        case .largeFiles: "doc.richtext.fill"
+        case .startupItems: "power.circle.fill"
         case .ports: "network"
         }
     }
@@ -107,38 +107,46 @@ struct SidebarView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        @Bindable var model = model
         VStack(spacing: 0) {
-            List(selection: $model.selection) {
+            Spacer(minLength: 24)
+            VStack(alignment: .leading, spacing: 18) {
                 ForEach(Array(SidebarItem.groups.enumerated()), id: \.offset) { _, group in
-                    if group.0.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !group.0.isEmpty {
+                            Text(group.0.uppercased()).font(.system(size: 10, weight: .bold)).tracking(1.2)
+                                .foregroundStyle(.white.opacity(0.45)).padding(.leading, 14).padding(.bottom, 2)
+                        }
                         ForEach(group.1) { row($0) }
-                    } else {
-                        Section(group.0) { ForEach(group.1) { row($0) } }
                     }
                 }
             }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
+            .padding(.horizontal, 10)
+            Spacer(minLength: 24)
             Divider().opacity(0.25)
             diskFooter.padding(12)
         }
-        .frame(minWidth: 230)
+        .frame(minWidth: 236)
     }
 
-    @ViewBuilder
     private func row(_ item: SidebarItem) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: item.symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(item.theme.accent)
-                .frame(width: 22)
-            Text(item.title).lineLimit(1)
-            Spacer(minLength: 4)
-            badge(item)
+        let selected = model.selection == item
+        return Button { withAnimation(.spring(duration: 0.3)) { model.selection = item } } label: {
+            HStack(spacing: 12) {
+                Image(systemName: item.symbol)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(selected ? Color.black.opacity(0.8) : item.theme.accent)
+                    .frame(width: 32, height: 32)
+                    .background(selected ? item.theme.accent : item.theme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                Text(item.title).font(.system(size: 14, weight: selected ? .semibold : .medium)).lineLimit(1)
+                    .foregroundStyle(.white.opacity(selected ? 1 : 0.85))
+                Spacer(minLength: 4)
+                badge(item)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5)
+            .background(selected ? Color.white.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(Rectangle())
         }
-        .tag(item)
-        .padding(.vertical, 3)
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
