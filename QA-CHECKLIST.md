@@ -2,6 +2,8 @@
 
 Run from Xcode (⌘R) or the built app. Every scenario says what to click and what you must see. Tick what passes; note anything else in the "Result" column.
 
+Layout note: results screens open on the **map** (bubbles/radial graph); the list view is one toggle away (top right). Run each scenario in both. Security has two tabs (Malware check, Startup items); Space Lens has Map and Large & old files; Dev Stack has Stack and Ports.
+
 Before you start: Quarantine lives in `~/Library/Application Support/CleanMyDev/Quarantine`, the log in `~/Library/Logs/CleanMyDev/operations.log`.
 
 ## 1. Smart Care, scan and review
@@ -11,8 +13,10 @@ Before you start: Quarantine lives in `~/Library/Application Support/CleanMyDev/
 | 1.1 | Open the app, Smart Care is selected | Three vitals rings (CPU, Memory, Disk) show live numbers; "Last clean: Never" the first time | |
 | 1.2 | Click **Scan** | Ring animates, the module name under it changes (System Junk → Dev Junk → Docker → …), bytes found climbs | |
 | 1.3 | Click **Stop** mid-scan | Back to the hero screen within a second, no crash | |
-| 1.4 | Scan again, let it finish | Header reads "N items · X GB found"; a PROJECTS strip, then category cards grouped by module | |
-| 1.5 | Look at the PROJECTS strip | chatarv shows **Pinned**, the Toptal project shows **Pinned**; nothing from either appears in any category below | |
+| 1.4 | Scan again, let it finish | Scan done sound; header reads "N items · X GB found"; radial map with Smart Care in the middle, one bubble per module sized by bytes, plus Projects and Dev Stack bubbles | |
+| 1.4b | Click a module bubble | Its categories fan out with a spring; click a category → side panel lists its items; ring around a bubble shows how much of it is selected | |
+| 1.4c | Click the Projects bubble, then a status satellite | Side panel lists those projects with their status chips; "Open Projects" jumps there | |
+| 1.5 | Switch to list view, look at the PROJECTS strip | chatarv shows **Pinned**, the Toptal project shows **Pinned**; nothing from either appears in any category | |
 | 1.6 | Cards marked **Review** (orange) | Their checkbox is empty by default; others are checked | |
 | 1.7 | Expand a card (chevron or click the row) | Rows show name, a reason line, a `~/…` path, size, and a magnifier that reveals the file in Finder | |
 | 1.8 | Uncheck one row inside a checked card | Card checkbox becomes a "minus"; the Clean button total drops by that row's size | |
@@ -36,7 +40,7 @@ Before you start: Quarantine lives in `~/Library/Application Support/CleanMyDev/
 
 | Step | Do | Expect | Result |
 |---|---|---|---|
-| 3.1 | Open **Projects** | List of real projects (no `go/pkg/mod`, no `.xcodeproj` rows); chips show counts for Active / Idle / Dormant / Pinned | |
+| 3.1 | Open **Projects** | Bubble map of real projects (no `go/pkg/mod`, no `.xcodeproj` rows), bubble size = deps + build output, colour = status; click a bubble → inspector on the right with artifacts and the status chip; list view via the toggle | |
 | 3.2 | Toggle **Only with deps or build output** off | More rows appear (repos with nothing to clean) | |
 | 3.3 | Expand FarmManagementSystem | Artifact list is empty now (deps were deleted today), status Idle | |
 | 3.4 | On a **Dormant** project (e.g. `extra/skillbey/New project`) open the status chip menu → **Pin until a date…** | Sheet with date picker and 3 days / 1 week / 1 month buttons | |
@@ -93,9 +97,9 @@ Before you start: Quarantine lives in `~/Library/Application Support/CleanMyDev/
 
 | Step | Do | Expect | Result |
 |---|---|---|---|
-| 8.1 | **Startup Items** | Every launch agent/daemon listed with scope and signature badge; "Only flagged" leaves the 2 flagged ones (BlueStacks cleanup is Unsigned) | |
+| 8.1 | **Security → Startup items** | Every launch agent/daemon listed with scope and signature badge; "Only flagged" leaves the 2 flagged ones (BlueStacks cleanup is Unsigned) | |
 | 8.2 | Magnifier on a row | Finder reveals the plist | |
-| 8.3 | **Malware Scan** → Check | Either "Nothing to clean" or Known Malware / Suspicious Startup Items cards, all unchecked | |
+| 8.3 | **Security → Malware check** → Check | Either "Nothing to clean" or Known Malware / Suspicious Startup Items cards, all unchecked | |
 
 ## 9. Settings and menu bar
 
@@ -104,10 +108,20 @@ Before you start: Quarantine lives in `~/Library/Application Support/CleanMyDev/
 | 9.1 | ⌘, → General: set Dormant to 20 days, rescan Projects | FarmManagementSystem (25 days) becomes Dormant; set it back to 30 | |
 | 9.2 | Folders: add `~/dev/chatarvInc` to Never touch, run Smart Care | No row anywhere under that folder; remove it afterwards | |
 | 9.3 | Schedule: enable daily run | `~/Library/LaunchAgents/Mouvema.CleanMyDev.daily.plist` exists; `launchctl list | grep CleanMyDev` shows it; disable → plist gone | |
-| 9.4 | Menu bar sparkle icon | Popover with rings, free space, "Smart Care" button that brings the window up and starts a scan; turning the toggle off in Settings removes the icon | |
+| 9.4 | Menu bar sparkle icon | Popover with CPU/memory/disk rings, CPU temperature, fan rpm with Manual toggle + slider + Apply (asks your password; Auto hands control back), network speed **Test** button showing ↓/↑ Mbps and ping, security card with last check and flag count that opens Security, "Smart Care" button; turning the toggle off in Settings removes the icon | |
+| 9.4b | Settings → Sound effects off | No sounds on scan start/done or clean | |
 | 9.5 | Log tab | Shows the operations log with today's entries | |
 
-## 10. Robustness
+## 10. Dev Stack
+
+| Step | Do | Expect | Result |
+|---|---|---|---|
+| 10.1 | Open **Dev Stack** | Bubble map grouped by colour; chips filter by group; search narrows live | |
+| 10.2 | Click the `postgresql@17 data` bubble | Inspector shows the data dir with a lock (never deletable) and the dump hint | |
+| 10.3 | Click `openclaw` | Shows "npm global", size, modified date; the clipboard button copies `npm uninstall -g openclaw` | |
+| 10.4 | **Ports** tab | Listening ports with Kill buttons | |
+
+## 11. Robustness
 
 | Step | Do | Expect | Result |
 |---|---|---|---|
