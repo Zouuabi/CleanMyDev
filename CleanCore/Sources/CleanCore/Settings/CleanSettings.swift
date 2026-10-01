@@ -26,6 +26,7 @@ public struct CleanSettings: Codable, Sendable, Equatable {
     public var scheduleHour: Int
     /// Show the menu bar extra.
     public var menuBarEnabled: Bool
+    public var soundsEnabled: Bool
     /// Last time a scan completed, for the menu bar readout.
     public var lastScanDate: Date?
     public var lastCleanDate: Date?
@@ -43,6 +44,7 @@ public struct CleanSettings: Codable, Sendable, Equatable {
         autoCleanCategories: Set<ScanCategory> = [.userCaches, .userLogs, .crashReports, .packageManagerCaches, .editorCaches, .aiToolCaches],
         scheduleHour: Int = 12,
         menuBarEnabled: Bool = true,
+        soundsEnabled: Bool = true,
         lastScanDate: Date? = nil,
         lastCleanDate: Date? = nil,
         lastCleanFreedBytes: UInt64 = 0
@@ -58,6 +60,7 @@ public struct CleanSettings: Codable, Sendable, Equatable {
         self.autoCleanCategories = autoCleanCategories
         self.scheduleHour = scheduleHour
         self.menuBarEnabled = menuBarEnabled
+        self.soundsEnabled = soundsEnabled
         self.lastScanDate = lastScanDate
         self.lastCleanDate = lastCleanDate
         self.lastCleanFreedBytes = lastCleanFreedBytes
@@ -73,6 +76,31 @@ public struct CleanSettings: Codable, Sendable, Equatable {
             "\(home)/.gnupg",
         ]
     }()
+
+    enum CodingKeys: String, CodingKey {
+        case scanRoots, neverTouch, activeDays, dormantDays, largeFileThreshold, quarantineRetentionDays, defaultCleanMode,
+             scheduleEnabled, autoCleanCategories, scheduleHour, menuBarEnabled, soundsEnabled, lastScanDate, lastCleanDate, lastCleanFreedBytes
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = CleanSettings()
+        scanRoots = try c.decodeIfPresent([String].self, forKey: .scanRoots) ?? d.scanRoots
+        neverTouch = try c.decodeIfPresent([String].self, forKey: .neverTouch) ?? d.neverTouch
+        activeDays = try c.decodeIfPresent(Int.self, forKey: .activeDays) ?? d.activeDays
+        dormantDays = try c.decodeIfPresent(Int.self, forKey: .dormantDays) ?? d.dormantDays
+        largeFileThreshold = try c.decodeIfPresent(UInt64.self, forKey: .largeFileThreshold) ?? d.largeFileThreshold
+        quarantineRetentionDays = try c.decodeIfPresent(Int.self, forKey: .quarantineRetentionDays) ?? d.quarantineRetentionDays
+        defaultCleanMode = try c.decodeIfPresent(CleaningEngine.Mode.self, forKey: .defaultCleanMode) ?? d.defaultCleanMode
+        scheduleEnabled = try c.decodeIfPresent(Bool.self, forKey: .scheduleEnabled) ?? d.scheduleEnabled
+        autoCleanCategories = try c.decodeIfPresent(Set<ScanCategory>.self, forKey: .autoCleanCategories) ?? d.autoCleanCategories
+        scheduleHour = try c.decodeIfPresent(Int.self, forKey: .scheduleHour) ?? d.scheduleHour
+        menuBarEnabled = try c.decodeIfPresent(Bool.self, forKey: .menuBarEnabled) ?? d.menuBarEnabled
+        soundsEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundsEnabled) ?? d.soundsEnabled
+        lastScanDate = try c.decodeIfPresent(Date.self, forKey: .lastScanDate)
+        lastCleanDate = try c.decodeIfPresent(Date.self, forKey: .lastCleanDate)
+        lastCleanFreedBytes = try c.decodeIfPresent(UInt64.self, forKey: .lastCleanFreedBytes) ?? 0
+    }
 
     public var quarantineRetention: TimeInterval { TimeInterval(quarantineRetentionDays * 86_400) }
 

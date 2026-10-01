@@ -7,6 +7,7 @@ struct CleanMyDevApp: App {
     @State private var gate = PermissionGate()
 
     init() {
+        _ = FanControl.handleLaunchArguments()
         if CommandLine.arguments.contains("--background-clean") {
             Task.detached {
                 await Scheduler.runBackgroundClean()

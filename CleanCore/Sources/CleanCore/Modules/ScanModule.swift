@@ -73,8 +73,10 @@ public actor ScanRunner {
         var results: [ModuleScanResult] = []
         var items = 0
         var bytes: UInt64 = 0
+        ScanTelemetry.shared.reset(module: selected.first?.name ?? "")
         for (i, module) in selected.enumerated() {
             if Task.isCancelled { break }
+            ScanTelemetry.shared.setModule(module.name)
             onProgress(Progress(fraction: Double(i) / Double(max(selected.count, 1)), currentModule: module.name, itemsFound: items, bytesFound: bytes))
             let start = Date()
             let raw = await module.scan(context: context)
@@ -84,6 +86,7 @@ public actor ScanRunner {
                                      scanDuration: Date().timeIntervalSince(start))
             items += r.totalFileCount
             bytes += r.totalSize
+            ScanTelemetry.shared.found(items: r.totalFileCount, bytes: r.totalSize)
             results.append(r)
         }
         onProgress(Progress(fraction: 1, currentModule: "", itemsFound: items, bytesFound: bytes))

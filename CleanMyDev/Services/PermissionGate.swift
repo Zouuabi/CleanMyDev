@@ -20,9 +20,10 @@ final class PermissionGate {
     static func probe() -> Bool {
         let home = CMConstants.homePath
         let probes = [
-            "\(home)/Library/Safari/Bookmarks.plist",
             "\(home)/Library/Application Support/com.apple.TCC/TCC.db",
+            "\(home)/Library/Safari/Bookmarks.plist",
             "\(home)/Library/Mail",
+            "\(home)/Library/Containers/com.apple.Safari",
         ]
         for p in probes {
             let fd = open(p, O_RDONLY)
@@ -50,6 +51,15 @@ final class PermissionGate {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    static func relaunch() {
+        let url = Bundle.main.bundleURL
+        let task = Process()
+        task.executableURL = URL(filePath: "/usr/bin/open")
+        task.arguments = ["-n", url.path(percentEncoded: false)]
+        try? task.run()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { NSApp.terminate(nil) }
     }
 
     static func revealAppInFinder() {
@@ -90,7 +100,11 @@ struct PermissionGateView: View {
                         .buttonStyle(SecondaryButtonStyle())
                     Button { gate.recheck() } label: { Label("Check again", systemImage: "arrow.clockwise") }
                         .buttonStyle(SecondaryButtonStyle())
+                    Button { PermissionGate.relaunch() } label: { Label("Relaunch", systemImage: "arrow.counterclockwise.circle") }
+                        .buttonStyle(SecondaryButtonStyle())
                 }
+                Text("Granted it but still here? macOS sometimes applies the change only to a fresh process. Click Relaunch.")
+                    .font(.caption).foregroundStyle(.secondary)
                 if opened {
                     HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Waiting for access…").font(.caption).foregroundStyle(.secondary) }
                 }

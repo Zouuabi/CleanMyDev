@@ -1,84 +1,75 @@
 import SwiftUI
 import CleanCore
 
-/// Per-module colour worlds, like CleanMyMac's gradient panes. Each module
-/// gets a two-stop background gradient and an accent for its controls.
+/// One brand: teal. Sections get a sibling accent so the sidebar glass still
+/// shifts subtly when you move around, but everything reads as one app.
 enum ModuleTheme: Hashable {
     case smart, cleanup, developer, protection, applications, files, neutral
 
+    static let brand = Color(hex: 0x2DD4BF)
+
     var gradient: [Color] {
         switch self {
-        case .smart: [Color(hex: 0x3B1F7A), Color(hex: 0x120A2E)]
-        case .cleanup: [Color(hex: 0x0E6B3C), Color(hex: 0x062A18)]
-        case .developer: [Color(hex: 0x0B4F7A), Color(hex: 0x061F33)]
-        case .protection: [Color(hex: 0x8A1B5C), Color(hex: 0x33081F)]
-        case .applications: [Color(hex: 0x1F3A9A), Color(hex: 0x0B1540)]
-        case .files: [Color(hex: 0x0E6B6B), Color(hex: 0x052B2B)]
-        case .neutral: [Color(hex: 0x2A2A3A), Color(hex: 0x121218)]
+        case .smart: [Color(hex: 0x0E4F55), Color(hex: 0x071E2A)]
+        case .cleanup: [Color(hex: 0x0B4A45), Color(hex: 0x061C22)]
+        case .developer: [Color(hex: 0x0B4458), Color(hex: 0x061B2A)]
+        case .protection: [Color(hex: 0x0F4A5A), Color(hex: 0x081A26)]
+        case .applications: [Color(hex: 0x0B4350), Color(hex: 0x061A24)]
+        case .files: [Color(hex: 0x0A4A4A), Color(hex: 0x061E22)]
+        case .neutral: [Color(hex: 0x173238), Color(hex: 0x0A161A)]
         }
     }
 
     var accent: Color {
         switch self {
-        case .smart: Color(hex: 0xC084FC)
-        case .cleanup: Color(hex: 0x4ADE80)
-        case .developer: Color(hex: 0x38BDF8)
-        case .protection: Color(hex: 0xF472B6)
-        case .applications: Color(hex: 0x818CF8)
-        case .files: Color(hex: 0x2DD4BF)
-        case .neutral: Color(hex: 0xA1A1AA)
+        case .smart: Color(hex: 0x2DD4BF)
+        case .cleanup: Color(hex: 0x34D399)
+        case .developer: Color(hex: 0x22D3EE)
+        case .protection: Color(hex: 0x5EEAD4)
+        case .applications: Color(hex: 0x67E8F9)
+        case .files: Color(hex: 0x99F6E4)
+        case .neutral: Color(hex: 0x94A3B8)
         }
     }
 }
 
 extension Color {
     init(hex: UInt32, alpha: Double = 1) {
-        self.init(.sRGB,
-                  red: Double((hex >> 16) & 0xFF) / 255,
-                  green: Double((hex >> 8) & 0xFF) / 255,
-                  blue: Double(hex & 0xFF) / 255,
-                  opacity: alpha)
+        self.init(.sRGB, red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255, opacity: alpha)
     }
 }
 
 struct ThemeBackground: View {
     let theme: ModuleTheme
+    @State private var drift = false
     var body: some View {
         ZStack {
             LinearGradient(colors: theme.gradient, startPoint: .topLeading, endPoint: .bottomTrailing)
-            RadialGradient(colors: [theme.accent.opacity(0.22), .clear], center: .init(x: 0.75, y: 0.25), startRadius: 0, endRadius: 600)
-            RadialGradient(colors: [Color.white.opacity(0.06), .clear], center: .init(x: 0.1, y: 0.9), startRadius: 0, endRadius: 500)
+            RadialGradient(colors: [theme.accent.opacity(0.26), .clear], center: .init(x: drift ? 0.8 : 0.7, y: drift ? 0.2 : 0.3), startRadius: 0, endRadius: 640)
+            RadialGradient(colors: [Color(hex: 0x14B8A6).opacity(0.14), .clear], center: .init(x: drift ? 0.15 : 0.05, y: drift ? 0.85 : 0.95), startRadius: 0, endRadius: 560)
         }
         .ignoresSafeArea()
-        .animation(.easeInOut(duration: 0.45), value: theme)
+        .animation(.easeInOut(duration: 0.5), value: theme)
+        .onAppear { withAnimation(.easeInOut(duration: 14).repeatForever(autoreverses: true)) { drift = true } }
     }
 }
 
-// MARK: - Glass
+// MARK: - Liquid Glass
 
+/// Content card on Liquid Glass, per Apple's guidance: the glass is applied
+/// last, in a single rounded shape, with a faint tint so cards sit above the
+/// gradient without stacking glass on glass inside them.
 struct GlassCardModifier: ViewModifier {
-    var radius: CGFloat = 18
+    var radius: CGFloat = 20
     var tint: Color? = nil
     func body(content: Content) -> some View {
         content
-            .background {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(LinearGradient(colors: [Color.white.opacity(0.07), Color.white.opacity(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                if let tint {
-                    RoundedRectangle(cornerRadius: radius, style: .continuous).fill(tint.opacity(0.10))
-                }
-            }
-            .glassEffect(.regular.tint(Color.black.opacity(0.18)), in: .rect(cornerRadius: radius))
-            .overlay {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(LinearGradient(colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.22), radius: 16, y: 8)
+            .glassEffect(.regular.tint((tint ?? Color.black).opacity(tint == nil ? 0.16 : 0.22)), in: .rect(cornerRadius: radius))
     }
 }
 
 extension View {
-    func glassCard(radius: CGFloat = 18, tint: Color? = nil) -> some View {
+    func glassCard(radius: CGFloat = 20, tint: Color? = nil) -> some View {
         modifier(GlassCardModifier(radius: radius, tint: tint))
     }
 }
@@ -93,26 +84,22 @@ struct StatusChip: View {
         Label(text, systemImage: systemImage)
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 9).padding(.vertical, 4)
-            .background(tint.opacity(0.18), in: Capsule())
-            .overlay(Capsule().strokeBorder(tint.opacity(0.5), lineWidth: 1))
             .foregroundStyle(tint)
+            .glassEffect(.regular.tint(tint.opacity(0.25)), in: .capsule)
     }
 }
 
+/// Prominent teal glass button for the one primary action on a screen.
 struct PrimaryButtonStyle: ButtonStyle {
     var tint: Color
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .padding(.horizontal, 26).padding(.vertical, 12)
-            .background(
-                LinearGradient(colors: [tint, tint.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                in: Capsule()
-            )
+            .padding(.horizontal, 24).padding(.vertical, 11)
             .foregroundStyle(.black.opacity(0.85))
-            .shadow(color: tint.opacity(configuration.isPressed ? 0.2 : 0.55), radius: configuration.isPressed ? 6 : 16, y: 4)
+            .glassEffect(.regular.tint(tint.opacity(configuration.isPressed ? 0.75 : 0.95)).interactive(), in: .capsule)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(duration: 0.25), value: configuration.isPressed)
+            .animation(.spring(duration: 0.22), value: configuration.isPressed)
     }
 }
 
@@ -120,10 +107,10 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, 16).padding(.vertical, 9)
-            .background(Color.white.opacity(configuration.isPressed ? 0.18 : 0.10), in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+            .padding(.horizontal, 15).padding(.vertical, 8)
             .foregroundStyle(.white)
+            .glassEffect(.regular.interactive(), in: .capsule)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
     }
 }
 
@@ -139,34 +126,46 @@ struct RingGauge: View {
                 .trim(from: 0, to: min(max(value, 0), 1))
                 .stroke(tint.gradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 0.6), value: value)
-            Text(center).font(.system(.callout, design: .rounded).weight(.bold)).foregroundStyle(.white)
+                .animation(.spring(duration: 0.8), value: value)
+            Text(center).font(.system(.callout, design: .rounded).weight(.bold)).foregroundStyle(.white).contentTransition(.numericText())
         }
     }
 }
 
+/// The hero button: a breathing teal orb with orbiting light.
 struct BigScanButton: View {
     let title: String
     let tint: Color
     let isBusy: Bool
     let action: () -> Void
-    @State private var pulse = false
+    @State private var breathe = false
+    @State private var spin = false
 
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().stroke(tint.opacity(0.18), lineWidth: 2).frame(width: 150, height: 150)
-                    .scaleEffect(pulse ? 1.12 : 1).opacity(pulse ? 0 : 1)
-                    .animation(.easeOut(duration: 1.8).repeatForever(autoreverses: false), value: pulse)
+                Circle().stroke(tint.opacity(0.22), lineWidth: 1.5).frame(width: 176, height: 176)
+                    .scaleEffect(breathe ? 1.08 : 0.96).opacity(breathe ? 0.3 : 0.9)
+                Circle().stroke(tint.opacity(0.16), lineWidth: 1).frame(width: 206, height: 206)
+                    .scaleEffect(breathe ? 1.04 : 0.98).opacity(breathe ? 0.2 : 0.7)
                 Circle()
-                    .fill(RadialGradient(colors: [tint.opacity(0.95), tint.opacity(0.55)], center: .topLeading, startRadius: 0, endRadius: 140))
-                    .frame(width: 118, height: 118)
-                    .shadow(color: tint.opacity(0.6), radius: 24, y: 6)
+                    .trim(from: 0.0, to: 0.22)
+                    .stroke(AngularGradient(colors: [tint.opacity(0), tint], center: .center), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 150, height: 150)
+                    .rotationEffect(.degrees(spin ? 360 : 0))
+                Circle()
+                    .fill(RadialGradient(colors: [tint.opacity(0.95), tint.opacity(0.45)], center: .topLeading, startRadius: 0, endRadius: 150))
+                    .frame(width: 124, height: 124)
+                    .shadow(color: tint.opacity(0.65), radius: breathe ? 34 : 22, y: 8)
+                    .scaleEffect(breathe ? 1.03 : 1)
                 Text(isBusy ? "Stop" : title).font(.title3.weight(.bold)).foregroundStyle(.black.opacity(0.85))
             }
         }
         .buttonStyle(.plain)
-        .onAppear { pulse = true }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { breathe = true }
+            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) { spin = true }
+        }
     }
 }
 
@@ -181,7 +180,7 @@ struct SizeText: View {
     let bytes: UInt64
     var font: Font = .headline
     var body: some View {
-        Text(ByteFormatter.string(bytes)).font(font).monospacedDigit().foregroundStyle(.white)
+        Text(ByteFormatter.string(bytes)).font(font).monospacedDigit().foregroundStyle(.white).contentTransition(.numericText())
     }
 }
 
@@ -190,5 +189,24 @@ extension Date {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .short
         return f.localizedString(for: self, relativeTo: Date())
+    }
+}
+
+/// Live, animated dots for anything waiting on work.
+struct PulseDots: View {
+    let tint: Color
+    @State private var phase = 0
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle().fill(tint).frame(width: 6, height: 6)
+                    .scaleEffect(phase == i ? 1.4 : 0.8).opacity(phase == i ? 1 : 0.45)
+            }
+        }
+        .onAppear {
+            Timer.scheduledTimer(withTimeInterval: 0.28, repeats: true) { _ in
+                Task { @MainActor in withAnimation(.easeInOut(duration: 0.25)) { phase = (phase + 1) % 3 } }
+            }
+        }
     }
 }

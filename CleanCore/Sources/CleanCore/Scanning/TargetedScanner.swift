@@ -76,6 +76,7 @@ public actor TargetedScanner {
             while let obj = enumerator.nextObject() {
                 if Task.isCancelled { break }
                 guard let url = obj as? URL else { continue }
+                ScanTelemetry.shared.visited(url.path(percentEncoded: false))
 
                 if let maxDepth = target.maxDepth, enumerator.level > maxDepth {
                     enumerator.skipDescendants()
@@ -214,6 +215,7 @@ public enum DirectorySizer {
                 logical += UInt64(st.st_size)
                 allocated += UInt64(st.st_blocks) * 512
                 count += 1
+                ScanTelemetry.shared.visited(count & 63 == 0 ? path + "/" + name : nil, bytes: UInt64(st.st_blocks) * 512)
             }
         }
     }

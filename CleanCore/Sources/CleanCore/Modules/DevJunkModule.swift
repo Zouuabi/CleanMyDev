@@ -97,6 +97,7 @@ public actor ProjectScanService {
         }
         entries = Self.applyAncestorProtection(projects.map { Entry(project: $0, decision: ProjectClassifier.decide($0, registry: context.registry, settings: context.settings, now: context.now)) })
         lastRefresh = Date()
+        SizeCache.shared.flush()
         return entries
     }
 

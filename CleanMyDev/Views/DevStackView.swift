@@ -7,6 +7,9 @@ struct DevStackView: View {
     @State private var group: DevStackItem.Group? = nil
     @State private var search = ""
     @State private var toQuarantine: DevStackItem?
+    @State private var tab = 0
+    @State private var showMap = true
+    @State private var picked: String? = nil
 
     private var rows: [DevStackItem] {
         model.devStack
@@ -17,10 +20,30 @@ struct DevStackView: View {
     var body: some View {
         VStack(spacing: 0) {
             header.padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
-            if model.devStackLoading && model.devStack.isEmpty {
-                Spacer(); ProgressView("Looking at what's installed…"); Spacer()
+            if tab == 1 {
+                PortsView()
+            } else if model.devStackLoading && model.devStack.isEmpty {
+                LiveWorkView(title: "Looking at what's installed", subtitle: "Homebrew, version managers, global packages, database engines, SDKs, VM disks.", tint: ModuleTheme.files.accent)
             } else if model.devStack.isEmpty {
                 Spacer(); Text("Nothing found yet").foregroundStyle(.secondary); Spacer()
+            } else if showMap {
+                groupChips.padding(.horizontal, 28).padding(.bottom, 10)
+                HStack(spacing: 14) {
+                    BubbleMap(bubbles: rows.filter { $0.bytes > 0 }.map { i in
+                        Bubble(id: i.id, label: i.name, sublabel: i.formattedSize, bytes: i.bytes, tint: Self.tint(i.group), symbol: i.group.systemImage)
+                    }, selected: $picked)
+                    .glassCard(radius: 22)
+                    if let id = picked, let item = model.devStack.first(where: { $0.id == id }) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            row(item)
+                            if let h = item.hint { Text(h).font(.caption).foregroundStyle(.orange) }
+                            Spacer()
+                        }
+                        .frame(width: 340).transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+                }
+                .padding(.horizontal, 28).padding(.bottom, 24)
+                .animation(.spring(duration: 0.4), value: picked)
             } else {
                 groupChips.padding(.horizontal, 28).padding(.bottom, 10)
                 ScrollView {
@@ -59,7 +82,12 @@ struct DevStackView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            TextField("Search", text: $search).textFieldStyle(.roundedBorder).frame(width: 180)
+            Picker("", selection: $tab) { Text("Stack").tag(0); Text("Ports").tag(1) }.pickerStyle(.segmented).labelsHidden().frame(width: 140)
+            Picker("", selection: $showMap) {
+                Image(systemName: "circle.hexagongrid").tag(true)
+                Image(systemName: "list.bullet").tag(false)
+            }.pickerStyle(.segmented).labelsHidden().frame(width: 90)
+            TextField("Search", text: $search).textFieldStyle(.roundedBorder).frame(width: 160)
             Button { model.loadDevStack() } label: {
                 if model.devStackLoading { ProgressView().controlSize(.small) } else { Label("Refresh", systemImage: "arrow.clockwise") }
             }.buttonStyle(SecondaryButtonStyle()).disabled(model.devStackLoading)
@@ -132,6 +160,18 @@ struct DevStackView: View {
             }
         }
         .frame(width: 50)
+    }
+
+    static func tint(_ g: DevStackItem.Group) -> Color {
+        switch g {
+        case .databases: Color(hex: 0x2DD4BF)
+        case .services: Color(hex: 0x5EEAD4)
+        case .toolchains: Color(hex: 0x22D3EE)
+        case .globalTools: Color(hex: 0x67E8F9)
+        case .sdks: Color(hex: 0x34D399)
+        case .vms: Color(hex: 0xF59E0B)
+        case .packageManagers: Color(hex: 0x94A3B8)
+        }
     }
 
     private func statusChip(_ s: DevStackItem.Status) -> some View {

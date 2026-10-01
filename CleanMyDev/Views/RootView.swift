@@ -7,15 +7,16 @@ struct RootView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 250, ideal: 270, max: 340)
+                .navigationSplitViewColumnWidth(min: 230, ideal: 250, max: 320)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
             detail(for: model.selection)
                 .id(model.selection)
-                .transition(.opacity)
+                .transition(.opacity.combined(with: .scale(scale: 0.995)))
                 .toolbarBackground(.hidden, for: .windowToolbar)
         }
         .background { ThemeBackground(theme: model.selection.theme) }
+        .tint(ModuleTheme.brand)
         .navigationTitle("")
         .task {
             let args = CommandLine.arguments
@@ -33,11 +34,12 @@ struct RootView: View {
         case .smartCare: SmartCareView()
         case .projects: ProjectsView()
         case .devStack: DevStackView()
-        case .ports: PortsView()
-        case .startupItems: StartupItemsView()
+        case .security: SecurityView()
         case .uninstaller: UninstallerView()
         case .spaceLens: SpaceLensView()
         case .quarantine: QuarantineView()
+        case .startupItems: StartupItemsView()
+        case .ports: PortsView()
         default: ModuleScreen(scope: item)
         }
     }

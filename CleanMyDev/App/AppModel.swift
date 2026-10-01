@@ -8,7 +8,7 @@ import CleanCore
 @MainActor
 final class AppModel {
     // MARK: Persistent
-    var settings: CleanSettings { didSet { if oldValue != settings { try? settings.save() } } }
+    var settings: CleanSettings { didSet { if oldValue != settings { try? settings.save(); SoundFX.enabled = settings.soundsEnabled } } }
     var registry: ProjectRegistry { didSet { if oldValue != registry { try? registry.save() } } }
 
     // MARK: Navigation
@@ -49,6 +49,11 @@ final class AppModel {
     var ports: [OpenPort] = []
     var devStack: [DevStackItem] = []
     var devStackLoading = false
+    var thermal: ThermalSnapshot = .empty
+    var speedPhase: NetworkSpeedTest.Phase = .idle
+    var lastSpeed: NetworkSpeedTest.Result?
+    var fanBusy = false
+    var fanError: String?
     var diskRoot: DiskNode?
     var diskScanProgress: DiskTreeScanner.Progress?
     var diskScanning = false
@@ -59,6 +64,13 @@ final class AppModel {
     init() {
         settings = CleanSettings.load()
         registry = ProjectRegistry.load()
+        SoundFX.enabled = settings.soundsEnabled
+        if CommandLine.arguments.contains("--debug-telemetry") {
+            Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                let t = ScanTelemetry.shared.snapshot
+                OperationLog.append("[TELEMETRY] module=\(t.currentModule) files=\(t.filesVisited) found=\(t.bytesFound) path=\(t.currentPath.suffix(60))")
+            }
+        }
         quarantineRuns = QuarantineStore.runs()
         QuarantineStore.purgeExpired(retention: settings.quarantineRetention)
         startStats()
@@ -100,6 +112,7 @@ final class AppModel {
         phases[scope] = .scanning(progress: 0, module: "Starting", found: 0)
         results[scope] = []
         selected[scope] = []
+        SoundFX.scanStart()
         let ctx = context()
         let smart = scope == .smartCare
         scanTasks[scope] = Task { [weak self] in
@@ -117,6 +130,7 @@ final class AppModel {
             self.selected[scope] = auto
             self.phases[scope] = .results
             self.settings.lastScanDate = Date()
+            SoundFX.scanDone()
             if ids.contains("dev_junk") || smart { self.projects = await ProjectScanService.shared.entries }
         }
     }
@@ -168,11 +182,13 @@ final class AppModel {
                 Task { @MainActor [weak self] in self?.phases[scope] = .cleaning(progress: p.fraction) }
             }
             self.phases[scope] = .done(removed: result.removedCount, freed: result.freedBytes, errors: result.errors.count, mode: mode)
+            if mode == .dryRun { SoundFX.tap() } else { SoundFX.cleanDone() }
             if mode != .dryRun {
                 self.settings.lastCleanDate = Date()
                 self.settings.lastCleanFreedBytes = result.freedBytes
             }
             self.quarantineRuns = QuarantineStore.runs()
+            result.removedURLs.forEach { SizeCache.shared.invalidate($0) }
             // Drop removed items from the stored results so a second look is honest.
             self.results[scope] = self.results(scope).map { m in
                 var m = m
@@ -270,6 +286,37 @@ final class AppModel {
         return r
     }
 
+    /// Flagged startup items plus malware hits from the last Security check.
+    var securityFlags: Int {
+        persistence.filter(\.isSuspicious).count + results(.security).flatMap(\.categories).filter { $0.category == .malware }.reduce(0) { $0 + $1.items.count }
+    }
+
+    var securityLastScan: Date? { results(.security).isEmpty ? nil : settings.lastScanDate }
+
+    func runSpeedTest() {
+        guard speedPhase == .idle || { if case .done = speedPhase { return true }; if case .failed = speedPhase { return true }; return false }() else { return }
+        speedPhase = .latency
+        Task { [weak self] in
+            let r = await NetworkSpeedTest().run { phase in
+                Task { @MainActor [weak self] in self?.speedPhase = phase }
+            }
+            await MainActor.run { self?.lastSpeed = r }
+        }
+    }
+
+    func setFan(_ id: Int, rpm: Int?) {
+        fanBusy = true
+        fanError = nil
+        Task { [weak self] in
+            let ok = await FanControl.set(fan: id, rpm: rpm)
+            await MainActor.run {
+                self?.fanBusy = false
+                if !ok { self?.fanError = "Fan change was refused or cancelled" }
+                self?.thermal = Sensors.snapshot()
+            }
+        }
+    }
+
     func loadDevStack() {
         devStackLoading = true
         Task { [weak self] in
@@ -340,10 +387,14 @@ final class AppModel {
     // MARK: - Stats
 
     private func startStats() {
-        Task { [weak self] in self?.stats = await SystemStatsCollector.shared.sample() }
+        Task { [weak self] in
+            self?.stats = await SystemStatsCollector.shared.sample()
+            self?.thermal = await Task.detached { Sensors.snapshot() }.value
+        }
         statsTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.stats = await SystemStatsCollector.shared.sample()
+                self?.thermal = await Task.detached { Sensors.snapshot() }.value
             }
         }
     }

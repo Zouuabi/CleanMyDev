@@ -65,6 +65,7 @@ public enum DevStackInventory {
         async let sdks = sdkItems()
         async let vms = vmItems()
         var all = await brew + dbs + runtimes + globals + sdks + vms
+        SizeCache.shared.flush()
         var seen = Set<String>()
         all = all.filter { seen.insert($0.id).inserted }
         return all.sorted { ($0.group.rawValue, $1.bytes) < ($1.group.rawValue, $0.bytes) }
@@ -73,7 +74,7 @@ public enum DevStackInventory {
     static let home = CMConstants.homePath
     static let brewPrefixes = ["/opt/homebrew", "/usr/local"]
 
-    static func size(_ path: String) -> UInt64 { DirectorySizer.size(of: URL(filePath: path)).allocated }
+    static func size(_ path: String) -> UInt64 { SizeCache.shared.size(of: URL(filePath: path)).allocated }
     static func mtime(_ path: String) -> Date? { try? URL(filePath: path).resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }
     static func exists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
     static func entries(_ path: String) -> [String] { ((try? FileManager.default.contentsOfDirectory(atPath: path)) ?? []).filter { !$0.hasPrefix(".") }.sorted() }

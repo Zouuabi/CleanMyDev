@@ -115,6 +115,7 @@ public enum DiskTreeScanner {
             lock.lock(); defer { lock.unlock() }
             if nlink > 1, !seen.insert(ino).inserted { return false }
             files += 1; bytes += size
+            ScanTelemetry.shared.visited(path, bytes: UInt64(max(size, 0)))
             if files % 20_000 == 0 { onProgress?(Progress(files: files, bytes: bytes, current: path)) }
             return true
         }

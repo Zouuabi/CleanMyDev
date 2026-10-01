@@ -79,43 +79,13 @@ struct HeroView<Header: View>: View {
     static func categories(for scope: SidebarItem) -> [ScanCategory] {
         switch scope {
         case .smartCare: [.userCaches, .packageManagerCaches, .projectDependencies, .dockerImages, .browserCache]
-        case .systemJunk: [.userCaches, .userLogs, .crashReports, .appLeftovers, .editorCaches]
+        case .systemJunk: [.userCaches, .userLogs, .crashReports, .trashBins, .appLeftovers]
         case .browsers: [.browserCache, .browserHistory, .systemPrivacy]
-        case .trash: [.trashBins]
-        case .devJunk: [.packageManagerCaches, .xcodeJunk, .projectDependencies, .projectBuildOutput, .mlModelCaches]
+        case .devJunk: [.packageManagerCaches, .xcodeJunk, .simulators, .projectDependencies, .projectBuildOutput]
         case .docker: [.dockerImages, .dockerVolumes, .dockerContainers, .dockerBuildCache]
-        case .simulators: [.simulators]
-        case .protection: [.malware, .suspiciousPersistence]
+        case .security: [.malware, .suspiciousPersistence]
         case .largeFiles: [.largeFiles, .oldFiles]
         default: []
-        }
-    }
-}
-
-struct ScanningView: View {
-    @Environment(AppModel.self) private var model
-    let scope: SidebarItem
-    let progress: Double
-    let module: String
-    let found: UInt64
-
-    var body: some View {
-        VStack(spacing: 28) {
-            Spacer()
-            ZStack {
-                RingGauge(value: max(progress, 0.03), tint: scope.theme.accent, center: "", lineWidth: 10)
-                    .frame(width: 200, height: 200)
-                VStack(spacing: 4) {
-                    Text(ByteFormatter.string(found)).font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit()
-                    Text("found so far").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            VStack(spacing: 6) {
-                Text("Scanning \(module)…").font(.title3.weight(.semibold))
-                Text(scope.title).foregroundStyle(.secondary)
-            }
-            Button("Stop") { model.cancelScan(scope) }.buttonStyle(SecondaryButtonStyle())
-            Spacer()
         }
     }
 }
@@ -125,6 +95,7 @@ struct ResultsView: View {
     let scope: SidebarItem
     @State private var expanded: Set<ScanCategory> = []
     @State private var confirmPermanent = false
+    @State private var showMap = true
 
     private var results: [ModuleScanResult] { model.results(scope) }
 
@@ -133,6 +104,8 @@ struct ResultsView: View {
             header.padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
             if results.isEmpty {
                 emptyState
+            } else if showMap {
+                ResultGraphView(scope: scope).padding(.horizontal, 28).padding(.bottom, 100)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 14) {
@@ -163,6 +136,11 @@ struct ResultsView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Picker("", selection: $showMap) {
+                Image(systemName: "circle.hexagongrid").tag(true)
+                Image(systemName: "list.bullet").tag(false)
+            }
+            .pickerStyle(.segmented).labelsHidden().frame(width: 90)
             Button { model.scan(scope) } label: { Label("Rescan", systemImage: "arrow.clockwise") }.buttonStyle(SecondaryButtonStyle())
         }
     }

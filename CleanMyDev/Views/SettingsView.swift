@@ -31,8 +31,9 @@ struct SettingsView: View {
                         }.labelsHidden().frame(width: 120)
                     }
                 }
-                Section("Menu bar") {
+                Section("Menu bar & feedback") {
                     Toggle("Show CleanMyDev in the menu bar", isOn: $model.settings.menuBarEnabled)
+                    Toggle("Sound effects", isOn: $model.settings.soundsEnabled)
                 }
             }
             .formStyle(.grouped)

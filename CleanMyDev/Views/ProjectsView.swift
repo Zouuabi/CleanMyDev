@@ -7,6 +7,8 @@ struct ProjectsView: View {
     @State private var filter: ProjectStatus? = nil
     @State private var search = ""
     @State private var onlyWithArtifacts = true
+    @State private var showMap = true
+    @State private var picked: String? = nil
 
     private var rows: [ProjectScanService.Entry] {
         model.projects
@@ -20,13 +22,7 @@ struct ProjectsView: View {
         VStack(spacing: 0) {
             header.padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
             if model.projectsLoading && model.projects.isEmpty {
-                VStack(spacing: 14) {
-                    Spacer()
-                    ProgressView().controlSize(.large)
-                    Text("Finding projects…").font(.title3.weight(.semibold))
-                    Text("Walking your scan roots and sizing dependencies and build output.").foregroundStyle(.secondary)
-                    Spacer()
-                }
+                LiveWorkView(title: "Finding projects", subtitle: "Walking your scan roots and sizing dependencies and build output.", tint: ModuleTheme.developer.accent)
             } else if model.projects.isEmpty {
                 VStack(spacing: 14) {
                     Spacer()
@@ -39,11 +35,27 @@ struct ProjectsView: View {
                 }
             } else {
                 summaryChips.padding(.horizontal, 28).padding(.bottom, 10)
-                ScrollView {
-                    LazyVStack(spacing: 10) {
-                        ForEach(rows) { ProjectRow(entry: $0) }
+                if showMap {
+                    HStack(spacing: 14) {
+                        BubbleMap(bubbles: rows.map { e in
+                            Bubble(id: e.id, label: e.project.name, sublabel: e.project.formattedArtifactSize, bytes: max(e.project.totalArtifactBytes, 1),
+                                   tint: e.decision.status.tint, symbol: e.decision.status.systemImage)
+                        }, selected: $picked)
+                        .glassCard(radius: 22)
+                        if let id = picked, let e = model.projects.first(where: { $0.id == id }) {
+                            ScrollView { ProjectRow(entry: e, startExpanded: true) }.frame(width: 360)
+                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
                     }
-                    .padding(.horizontal, 28).padding(.bottom, 30)
+                    .padding(.horizontal, 28).padding(.bottom, 24)
+                    .animation(.spring(duration: 0.4), value: picked)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(rows) { ProjectRow(entry: $0) }
+                        }
+                        .padding(.horizontal, 28).padding(.bottom, 30)
+                    }
                 }
             }
         }
@@ -57,6 +69,10 @@ struct ProjectsView: View {
                 Text("Active and pinned projects are never touched. Dormant ones give up their dependencies and build output.").foregroundStyle(.secondary)
             }
             Spacer()
+            Picker("", selection: $showMap) {
+                Image(systemName: "circle.hexagongrid").tag(true)
+                Image(systemName: "list.bullet").tag(false)
+            }.pickerStyle(.segmented).labelsHidden().frame(width: 90)
             Toggle("Only with deps or build output", isOn: $onlyWithArtifacts).toggleStyle(.switch).controlSize(.small)
             TextField("Search", text: $search).textFieldStyle(.roundedBorder).frame(width: 180)
             Button { model.refreshProjects() } label: {
@@ -97,6 +113,7 @@ struct ProjectsView: View {
 struct ProjectRow: View {
     @Environment(AppModel.self) private var model
     let entry: ProjectScanService.Entry
+    var startExpanded = false
     @State private var expanded = false
 
     var body: some View {
@@ -161,5 +178,6 @@ struct ProjectRow: View {
         }
         .glassCard(radius: 14, tint: entry.decision.status.allowsCleaning ? nil : entry.decision.status.tint)
         .animation(.spring(duration: 0.25), value: expanded)
+        .onAppear { if startExpanded { expanded = true } }
     }
 }

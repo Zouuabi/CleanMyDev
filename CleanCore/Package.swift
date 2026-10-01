@@ -12,9 +12,16 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "CHIDSensors",
+            path: "Sources/CHIDSensors",
+            linkerSettings: [.linkedFramework("IOKit"), .linkedFramework("CoreFoundation")]
+        ),
+        .target(
             name: "CleanCore",
+            dependencies: ["CHIDSensors"],
             path: "Sources/CleanCore",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            swiftSettings: [.swiftLanguageMode(.v6)],
+            linkerSettings: [.linkedFramework("IOKit")]
         ),
         .testTarget(
             name: "CleanCoreTests",

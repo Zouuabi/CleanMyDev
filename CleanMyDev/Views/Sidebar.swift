@@ -2,123 +2,104 @@ import SwiftUI
 import CleanCore
 
 enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
-    case smartCare
-    case systemJunk, browsers, trash
-    case projects, devStack, devJunk, docker, simulators, ports
-    case protection, startupItems
-    case uninstaller
-    case spaceLens, largeFiles
-    case quarantine
+    case smartCare, projects, devStack
+    case systemJunk, devJunk, docker, browsers
+    case security, uninstaller
+    case spaceLens, quarantine
+    // Scopes that live inside another screen (tabs), never in the sidebar.
+    case largeFiles, startupItems, ports
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .smartCare: "Smart Care"
-        case .systemJunk: "System Junk"
-        case .browsers: "Browsers"
-        case .trash: "Trash"
         case .projects: "Projects"
         case .devStack: "Dev Stack"
+        case .systemJunk: "System Junk"
         case .devJunk: "Dev Junk"
         case .docker: "Docker"
-        case .simulators: "Simulators"
-        case .ports: "Ports"
-        case .protection: "Malware Scan"
-        case .startupItems: "Startup Items"
-        case .uninstaller: "Uninstaller"
+        case .browsers: "Browsers"
+        case .security: "Security"
+        case .uninstaller: "Apps"
         case .spaceLens: "Space Lens"
-        case .largeFiles: "Large & Old Files"
         case .quarantine: "Quarantine"
+        case .largeFiles: "Large & Old Files"
+        case .startupItems: "Startup Items"
+        case .ports: "Ports"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .smartCare: "One pass over caches, dev junk, Docker, browsers and startup items. Review, then clean."
-        case .systemJunk: "Caches, logs, crash reports, leftovers from deleted apps, editor and AI tool caches."
-        case .browsers: "Page caches and history for Chrome, Edge, Brave, Arc, Firefox and Safari. Logins stay."
-        case .trash: "Everything sitting in the Trash, on every volume."
-        case .projects: "Every project on this Mac with its status. Pin what you're working on."
-        case .devStack: "Databases, runtimes, global tools, SDKs and VM disks, discovered from where tools keep them."
-        case .devJunk: "Package manager caches, Xcode junk, and dependencies of dormant projects."
-        case .docker: "Unused images, orphan volumes, stopped containers and build cache. Running projects are untouched."
-        case .simulators: "Simulator devices that can't boot or haven't been used in a while."
-        case .ports: "Who is listening on which port, and a kill switch."
-        case .protection: "Known adware families plus an audit of every launch agent and daemon."
-        case .startupItems: "Everything that runs at login, with its code signature."
+        case .smartCare: "One pass over everything: junk, dev stack, projects, Docker, browsers, security. Review on the map, then clean."
+        case .projects: "Every project on this Mac with its status. Pin what you're working on; dormant ones give up their deps."
+        case .devStack: "Databases and their data, runtimes, global tools, SDKs and VM disks. Discovered, not configured."
+        case .systemJunk: "Caches, logs, crash reports, trash, leftovers of deleted apps, editor and AI tool caches."
+        case .devJunk: "Package manager caches, Xcode junk, dead simulators, and dependencies of dormant projects."
+        case .docker: "Unused images, orphan volumes, stopped containers, build cache. Running projects untouched."
+        case .browsers: "Page caches and history for Chrome, Edge, Brave, Arc, Firefox, Safari. Logins stay."
+        case .security: "Known adware families, and every launch agent and daemon with its code signature."
         case .uninstaller: "Installed apps with their leftovers across ~/Library."
-        case .spaceLens: "Treemap of your home folder. Click to drill in."
-        case .largeFiles: "The biggest and oldest files in your home folder."
+        case .spaceLens: "Treemap of your disk, plus the biggest and oldest files."
         case .quarantine: "Cleaned items wait here before they're gone for good."
+        case .largeFiles: "The biggest and oldest files in your home folder."
+        case .startupItems: "Everything that runs at login, with its code signature."
+        case .ports: "Who is listening on which port, and a kill switch."
         }
     }
 
     var symbol: String {
         switch self {
         case .smartCare: "sparkles"
-        case .systemJunk: "trash.circle"
-        case .browsers: "safari"
-        case .trash: "trash"
         case .projects: "folder.badge.gearshape"
         case .devStack: "cylinder.split.1x2"
+        case .systemJunk: "trash.circle"
         case .devJunk: "shippingbox"
         case .docker: "cube.transparent"
-        case .simulators: "iphone.gen3"
-        case .ports: "network"
-        case .protection: "shield.lefthalf.filled"
-        case .startupItems: "power.circle"
-        case .uninstaller: "xmark.app"
+        case .browsers: "safari"
+        case .security: "shield.lefthalf.filled"
+        case .uninstaller: "square.grid.2x2"
         case .spaceLens: "chart.pie"
-        case .largeFiles: "doc.richtext"
         case .quarantine: "archivebox"
+        case .largeFiles: "doc.richtext"
+        case .startupItems: "power.circle"
+        case .ports: "network"
         }
     }
 
     var theme: ModuleTheme {
         switch self {
-        case .smartCare: .smart
-        case .systemJunk, .browsers, .trash: .cleanup
-        case .projects, .devStack, .devJunk, .docker, .simulators, .ports: .developer
-        case .protection, .startupItems: .protection
+        case .smartCare, .projects, .devStack: .smart
+        case .systemJunk, .browsers: .cleanup
+        case .devJunk, .docker, .ports: .developer
+        case .security, .startupItems: .protection
         case .uninstaller: .applications
         case .spaceLens, .largeFiles: .files
         case .quarantine: .neutral
         }
     }
 
-    /// Module ids this scope runs. nil means the screen is not a scan screen.
     var moduleIDs: Set<String>? {
         switch self {
         case .smartCare: ["system_junk", "dev_junk", "docker", "simulators", "privacy", "malware", "trash"]
-        case .systemJunk: ["system_junk"]
-        case .browsers: ["privacy"]
-        case .trash: ["trash"]
-        case .devJunk: ["dev_junk"]
+        case .systemJunk: ["system_junk", "trash"]
+        case .devJunk: ["dev_junk", "simulators"]
         case .docker: ["docker"]
-        case .simulators: ["simulators"]
-        case .protection: ["malware"]
+        case .browsers: ["privacy"]
+        case .security: ["malware"]
         case .largeFiles: ["large_files"]
         default: nil
         }
     }
 
-    var scanTitle: String {
-        switch self {
-        case .smartCare: "Scan"
-        case .browsers, .protection: "Check"
-        default: "Scan"
-        }
-    }
+    var scanTitle: String { self == .security ? "Check" : "Scan" }
 
     static let groups: [(String, [SidebarItem])] = [
-        ("", [.smartCare]),
-        ("Cleanup", [.systemJunk, .browsers, .trash]),
-        ("Developer", [.projects, .devStack, .devJunk, .docker, .simulators, .ports]),
-        ("Protection", [.protection, .startupItems]),
-        ("Applications", [.uninstaller]),
-        ("Files", [.spaceLens, .largeFiles]),
-        ("", [.quarantine]),
+        ("", [.smartCare, .projects, .devStack]),
+        ("Clean", [.systemJunk, .devJunk, .docker, .browsers]),
+        ("Protect", [.security, .uninstaller]),
+        ("Disk", [.spaceLens, .quarantine]),
     ]
 }
 
@@ -139,10 +120,10 @@ struct SidebarView: View {
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
-            Divider().opacity(0.3)
+            Divider().opacity(0.25)
             diskFooter.padding(12)
         }
-        .frame(minWidth: 250)
+        .frame(minWidth: 230)
     }
 
     @ViewBuilder
@@ -157,7 +138,7 @@ struct SidebarView: View {
             badge(item)
         }
         .tag(item)
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
     }
 
     @ViewBuilder
@@ -169,11 +150,15 @@ struct SidebarView: View {
                 .background(item.theme.accent.opacity(0.22), in: Capsule())
                 .foregroundStyle(item.theme.accent)
         } else if case .scanning = model.phase(item) {
-            ProgressView().controlSize(.mini)
+            PulseDots(tint: item.theme.accent)
         } else if item == .quarantine, !model.quarantineRuns.isEmpty {
             Text("\(model.quarantineRuns.count)").font(.caption2.weight(.semibold))
                 .padding(.horizontal, 6).padding(.vertical, 2)
                 .background(Color.white.opacity(0.12), in: Capsule())
+        } else if item == .security, model.securityFlags > 0 {
+            Text("\(model.securityFlags)").font(.caption2.weight(.semibold))
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Color.orange.opacity(0.25), in: Capsule()).foregroundStyle(.orange)
         }
     }
 
@@ -188,15 +173,20 @@ struct SidebarView: View {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.white.opacity(0.10))
-                        Capsule().fill(s.diskUsedFraction > 0.9 ? Color.red : s.diskUsedFraction > 0.75 ? Color.orange : Color.green)
+                        Capsule().fill(s.diskUsedFraction > 0.9 ? Color.red : s.diskUsedFraction > 0.75 ? Color.orange : ModuleTheme.brand)
                             .frame(width: g.size.width * s.diskUsedFraction)
+                            .animation(.spring(duration: 0.8), value: s.diskUsedFraction)
                     }
                 }
                 .frame(height: 6)
-                if let last = model.settings.lastCleanDate {
-                    Text("Last clean \(last.relativeDescription) · \(ByteFormatter.string(model.settings.lastCleanFreedBytes))")
-                        .font(.caption2).foregroundStyle(.secondary)
+                HStack {
+                    if let last = model.settings.lastCleanDate {
+                        Text("Last clean \(last.relativeDescription) · \(ByteFormatter.string(model.settings.lastCleanFreedBytes))")
+                    } else { Text("No clean yet") }
+                    Spacer()
+                    if let t = model.thermal.cpuMax { Text("\(Int(t))°").monospacedDigit() }
                 }
+                .font(.caption2).foregroundStyle(.secondary)
             }
         }
     }

@@ -6,8 +6,100 @@ struct SmartCareView: View {
 
     var body: some View {
         ModuleScreen(scope: .smartCare) {
-            VitalsStrip().padding(.horizontal, 40).padding(.top, 24)
+            VStack(spacing: 12) {
+                VitalsStrip()
+                FlagshipStrip()
+            }
+            .padding(.horizontal, 40).padding(.top, 24)
         }
+        .task {
+            if model.projects.isEmpty { model.refreshProjects() }
+            if model.devStack.isEmpty { model.loadDevStack() }
+        }
+    }
+}
+
+/// Projects and Dev Stack at a glance, on the Smart Care hero.
+struct FlagshipStrip: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        GlassEffectContainer(spacing: 14) {
+            HStack(spacing: 14) {
+                Button { model.selection = .projects } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "folder.badge.gearshape").font(.title2).foregroundStyle(ModuleTheme.developer.accent)
+                        VStack(alignment: .leading, spacing: 3) {
+                            SectionLabel(text: "Projects")
+                            if model.projectsLoading && model.projects.isEmpty {
+                                HStack(spacing: 6) { PulseDots(tint: ModuleTheme.developer.accent); Text("finding…").font(.caption).foregroundStyle(.secondary) }
+                            } else {
+                                let active = model.projects.filter { $0.decision.status == .active || $0.decision.status == .pinned }.count
+                                let dormantBytes = model.projects.filter { $0.decision.status.allowsCleaning }.reduce(0) { $0 + $1.project.totalArtifactBytes }
+                                Text("\(model.projects.count) projects · \(active) protected").font(.subheadline.weight(.semibold))
+                                Text("\(ByteFormatter.string(dormantBytes)) reclaimable from dormant ones").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                    }
+                    .padding(14).frame(maxWidth: .infinity).glassCard()
+                }
+                .buttonStyle(.plain)
+                Button { model.selection = .devStack } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "cylinder.split.1x2").font(.title2).foregroundStyle(ModuleTheme.files.accent)
+                        VStack(alignment: .leading, spacing: 3) {
+                            SectionLabel(text: "Dev Stack")
+                            if model.devStackLoading && model.devStack.isEmpty {
+                                HStack(spacing: 6) { PulseDots(tint: ModuleTheme.files.accent); Text("inventorying…").font(.caption).foregroundStyle(.secondary) }
+                            } else {
+                                let dbs = model.devStack.filter { $0.group == .databases }.count
+                                let running = model.devStack.filter { $0.status == .running }.count
+                                Text("\(model.devStack.count) items · \(ByteFormatter.string(model.devStack.reduce(0) { $0 + $1.bytes }))").font(.subheadline.weight(.semibold))
+                                Text("\(dbs) databases · \(running) running").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                    }
+                    .padding(14).frame(maxWidth: .infinity).glassCard()
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+/// Shared "working" screen with motion: orbiting dots, live file counter.
+struct LiveWorkView: View {
+    let title: String
+    let subtitle: String
+    let tint: Color
+    @State private var spin = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.15)) { _ in
+            let t = ScanTelemetry.shared.snapshot
+            VStack(spacing: 18) {
+                Spacer()
+                ZStack {
+                    ForEach(0..<3, id: \.self) { i in
+                        Circle().trim(from: 0, to: 0.3)
+                            .stroke(tint.opacity(0.9 - Double(i) * 0.3), style: StrokeStyle(lineWidth: 6 - CGFloat(i), lineCap: .round))
+                            .frame(width: 120 - CGFloat(i) * 28, height: 120 - CGFloat(i) * 28)
+                            .rotationEffect(.degrees(spin ? 360 + Double(i) * 120 : Double(i) * 120))
+                            .animation(.linear(duration: 1.4 + Double(i) * 0.5).repeatForever(autoreverses: false), value: spin)
+                    }
+                    Text(t.filesVisited.formatted()).font(.system(size: 15, weight: .bold, design: .rounded)).monospacedDigit().contentTransition(.numericText())
+                }
+                Text(title).font(.title3.weight(.semibold))
+                Text(subtitle).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 460)
+                Text(t.currentPath.replacingOccurrences(of: CMConstants.homePath, with: "~")).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle).frame(maxWidth: 520).frame(height: 14)
+                Spacer()
+            }
+        }
+        .onAppear { spin = true }
     }
 }
 

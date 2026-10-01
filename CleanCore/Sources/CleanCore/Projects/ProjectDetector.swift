@@ -92,6 +92,7 @@ public struct ProjectDetector: Sendable {
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(atPath: path) else { return [] }
         let entrySet = Set(entries)
+        ScanTelemetry.shared.visited(path)
 
         let kinds = matchKinds(forEntries: entrySet)
         let isRepo = entrySet.contains(ProjectKind.repoMarker)
@@ -124,14 +125,14 @@ public struct ProjectDetector: Sendable {
             for rel in kind.dependencyDirs where seenArtifacts.insert(rel).inserted {
                 let url = root.appending(path: rel)
                 guard isDirectory(url) else { continue }
-                let bytes = DirectorySizer.size(of: url).allocated
+                let bytes = SizeCache.shared.size(of: url).allocated
                 guard bytes > 0 else { continue }
                 artifacts.append(.init(url: url, relativePath: rel, isDependency: true, bytes: bytes, kindName: kind.name))
             }
             for rel in kind.buildDirs where seenArtifacts.insert(rel).inserted {
                 let url = root.appending(path: rel)
                 guard isDirectory(url) else { continue }
-                let bytes = DirectorySizer.size(of: url).allocated
+                let bytes = SizeCache.shared.size(of: url).allocated
                 guard bytes > 0 else { continue }
                 artifacts.append(.init(url: url, relativePath: rel, isDependency: false, bytes: bytes, kindName: kind.name))
             }

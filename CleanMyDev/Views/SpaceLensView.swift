@@ -9,22 +9,25 @@ struct SpaceLensView: View {
     @State private var items: [TreemapItem] = []
     @State private var lastSize: CGSize = .zero
     @State private var quarantineTarget: DiskNode?
+    @State private var tab = 0
 
     var body: some View {
         VStack(spacing: 0) {
-            header.padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
+            Picker("", selection: $tab) { Text("Map").tag(0); Text("Large & old files").tag(1) }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 280).padding(.top, 14)
+            if tab == 1 {
+                ModuleScreen(scope: .largeFiles)
+            } else {
+                mapBody
+            }
+        }
+    }
+
+    private var mapBody: some View {
+        VStack(spacing: 0) {
+            header.padding(.horizontal, 28).padding(.top, 10).padding(.bottom, 12)
             if model.diskScanning {
-                VStack(spacing: 14) {
-                    Spacer()
-                    ProgressView().controlSize(.large)
-                    if let p = model.diskScanProgress {
-                        Text("\(p.files.formatted()) files · \(ByteFormatter.string(p.bytes))").font(.title3.weight(.semibold)).monospacedDigit()
-                        Text(p.current).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle).frame(maxWidth: 600)
-                    } else {
-                        Text("Reading the file system…").font(.title3.weight(.semibold))
-                    }
-                    Spacer()
-                }
+                LiveWorkView(title: "Mapping the disk", subtitle: "Every file, once, with hard links counted a single time.", tint: ModuleTheme.files.accent)
             } else if let root = model.diskRoot {
                 breadcrumb(root: root).padding(.horizontal, 28).padding(.bottom, 8)
                 HStack(alignment: .top, spacing: 14) {
