@@ -76,12 +76,19 @@ struct RadialMapView<Panel: View>: View {
             guard !kids.isEmpty else { continue }
             let kidMax = max(kids.map(\.bytes).max() ?? 1, 1)
             let spread = min(CGFloat.pi * 1.1, CGFloat(kids.count) * 0.38)
+            // Fan toward whichever side has room: outward by default, but when the
+            // ring node sits near an edge the arc is rotated back toward the centre.
+            let roomOut = min(size.width - p.x, p.x, size.height - p.y, p.y)
+            let baseAngle = roomOut < 190 ? angle + .pi : angle
             for (j, k) in kids.enumerated() {
                 let t = kids.count == 1 ? 0.5 : CGFloat(j) / CGFloat(kids.count - 1)
-                let a = angle - spread / 2 + spread * t
-                let dist: CGFloat = 125 + (kids.count > 7 ? CGFloat(j % 2) * 44 : 0)
+                let a = baseAngle - spread / 2 + spread * t
+                let dist: CGFloat = 120 + (kids.count > 7 ? CGFloat(j % 2) * 58 : 0)
                 let r = 16 + 16 * CGFloat(sqrt(Double(k.bytes) / Double(kidMax)))
-                out[k.id] = Placed(point: CGPoint(x: p.x + cos(a) * dist, y: p.y + sin(a) * dist), radius: r)
+                var x = p.x + cos(a) * dist, y = p.y + sin(a) * dist
+                x = min(max(x, r + 10), size.width - r - 10)
+                y = min(max(y, r + 10), size.height - r - 34)
+                out[k.id] = Placed(point: CGPoint(x: x, y: y), radius: r)
             }
         }
         return out
@@ -153,7 +160,7 @@ struct RadialMapView<Panel: View>: View {
                         .animation(.spring(duration: 0.5), value: frac)
                 }
                 Image(systemName: n.symbol).font(.system(size: max(11, radius * 0.5), weight: .semibold)).foregroundStyle(.white)
-                if n.review && frac == 0 && level > 0 {
+                if n.review && frac == 0 && level > 0 && !n.hasChildren {
                     Image(systemName: "eye.fill").font(.system(size: 9)).foregroundStyle(.orange)
                         .padding(3).background(Color.black.opacity(0.5), in: Circle())
                         .offset(x: radius * 0.65, y: -radius * 0.65)
@@ -175,7 +182,7 @@ struct RadialMapView<Panel: View>: View {
                     Button("Toggle selection") { onToggle(n) }
                 }
             }
-            if radius >= 17 || isHover {
+            if (level < 2 && radius >= 17) || radius >= 21 || isHover {
                 VStack(spacing: 1) {
                     Text(n.title).font(.system(size: level == 0 ? 14 : 11, weight: .semibold)).lineLimit(1).frame(maxWidth: 150)
                     Text(n.subtitle).font(.system(size: 10, design: .rounded)).foregroundStyle(.white.opacity(0.75)).monospacedDigit().lineLimit(1).frame(maxWidth: 170)

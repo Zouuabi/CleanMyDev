@@ -147,7 +147,7 @@ enum ProjectsMap {
             guard !group.isEmpty else { return nil }
             let bytes = group.reduce(0) { $0 + $1.project.totalArtifactBytes }
             return MapNode(id: "ps:\(status.rawValue)", title: status.displayName, subtitle: "\(group.count) · \(ByteFormatter.string(bytes))", bytes: max(bytes, 1),
-                           symbol: status.systemImage, tint: status.tint, review: !status.allowsCleaning, payload: .projectStatus(status),
+                           symbol: status.systemImage, tint: status.tint, review: false, payload: .projectStatus(status),
                            children: group.map { e in
                                MapNode(id: "p:\(e.id)", title: e.project.name, subtitle: e.project.formattedArtifactSize, bytes: max(e.project.totalArtifactBytes, 1),
                                        symbol: e.project.kinds.first?.symbol ?? "folder", tint: status.tint, review: !status.allowsCleaning, payload: .project(e.id))
@@ -166,7 +166,7 @@ enum ProjectsMap {
             Button("Open Projects") { model.selection = .projects }.buttonStyle(PrimaryButtonStyle(tint: ModuleTheme.developer.accent))
         case .project(let id):
             if let e = model.projects.first(where: { $0.id == id }) {
-                ScrollView { ProjectRow(entry: e, startExpanded: true) }
+                ProjectDetailCard(entry: e)
             }
         default: EmptyView()
         }
@@ -200,7 +200,7 @@ enum DevStackMap {
             guard !list.isEmpty else { return nil }
             let b = list.reduce(0) { $0 + $1.bytes }
             return MapNode(id: "dg:\(g.rawValue)", title: g.displayName, subtitle: "\(list.count) · \(ByteFormatter.string(b))", bytes: max(b, 1), symbol: g.systemImage, tint: tint(g),
-                           review: true, payload: .devGroup(g),
+                           review: false, payload: .devGroup(g),
                            children: list.map { i in
                                MapNode(id: "di:\(i.id)", title: i.name, subtitle: i.formattedSize, bytes: max(i.bytes, 1), symbol: g.systemImage, tint: tint(g),
                                        review: i.removal == .never, payload: .devItem(i.id))
@@ -240,6 +240,52 @@ enum DevStackMap {
                 DevStackItemCard(item: item)
             }
         default: EmptyView()
+        }
+    }
+}
+
+
+/// Compact project detail for the map's side panel.
+struct ProjectDetailCard: View {
+    @Environment(AppModel.self) private var model
+    let entry: ProjectScanService.Entry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                StatusMenu(entry: entry)
+                Spacer()
+                Button { NSWorkspace.shared.activateFileViewerSelecting([entry.project.root]) } label: { Image(systemName: "magnifyingglass") }.buttonStyle(.plain).foregroundStyle(.secondary)
+            }
+            Text(entry.decision.reason).font(.caption).foregroundStyle(entry.decision.status.tint)
+            Text(entry.project.kindSummary).font(.caption).foregroundStyle(.secondary)
+            Text(entry.project.path.replacingOccurrences(of: CMConstants.homePath, with: "~")).font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(3)
+            HStack(spacing: 10) {
+                if entry.project.signals.runningContainers > 0 { Label("\(entry.project.signals.runningContainers) containers", systemImage: "shippingbox").font(.caption2).foregroundStyle(.secondary) }
+                if entry.project.signals.devServerRunning { Label("dev server", systemImage: "bolt.horizontal").font(.caption2).foregroundStyle(.secondary) }
+                if entry.project.signals.openInEditor { Label("shell open here", systemImage: "terminal").font(.caption2).foregroundStyle(.secondary) }
+            }
+            Divider().opacity(0.3)
+            SectionLabel(text: "Artifacts · \(entry.project.formattedArtifactSize)")
+            if entry.project.artifacts.isEmpty {
+                Text("No dependencies or build output on disk.").font(.caption).foregroundStyle(.secondary)
+            }
+            ScrollView {
+                VStack(spacing: 4) {
+                    ForEach(entry.project.artifacts) { a in
+                        HStack {
+                            Image(systemName: a.isDependency ? "cube.box" : "wrench.and.screwdriver").foregroundStyle(.secondary).frame(width: 18)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(a.relativePath).font(.caption.monospaced()).lineLimit(1)
+                                Text(a.isDependency ? "dependencies" : "build output").font(.caption2).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(a.formattedSize).font(.caption.monospacedDigit())
+                        }
+                        .padding(8).background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
         }
     }
 }
