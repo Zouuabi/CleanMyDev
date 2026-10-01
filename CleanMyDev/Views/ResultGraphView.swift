@@ -216,6 +216,9 @@ struct ProjectGroupPanel: View {
             }
         }
         .onChange(of: status) { _, _ in detail = nil }
+        .onChange(of: model.demoAction?.seq) { _, _ in
+            if case .panelFirst = model.demoAction?.action, let first = entries.first { withAnimation(.spring(duration: 0.35)) { detail = first.id } }
+        }
     }
 }
 
@@ -370,5 +373,8 @@ struct DevGroupPanel: View {
             }
         }
         .onChange(of: group) { _, _ in detail = nil }
+        .onChange(of: model.demoAction?.seq) { _, _ in
+            if case .panelFirst = model.demoAction?.action, let first = items.first { withAnimation(.spring(duration: 0.35)) { detail = first.id } }
+        }
     }
 }

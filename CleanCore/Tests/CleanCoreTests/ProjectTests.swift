@@ -24,8 +24,8 @@ final class ProjectKindTests: XCTestCase {
 
 final class GitProbeTests: XCTestCase {
     func testNormalizeSSHAndHTTPSAgree() {
-        XCTAssertEqual(GitProbe.normalize("git@github.com:Zouuabi/CleanMyDev.git"), "github.com/zouuabi/cleanmydev")
-        XCTAssertEqual(GitProbe.normalize("https://github.com/Zouuabi/CleanMyDev"), "github.com/zouuabi/cleanmydev")
+        XCTAssertEqual(GitProbe.normalize("git@github.com:Example/CleanMyDev.git"), "github.com/example/cleanmydev")
+        XCTAssertEqual(GitProbe.normalize("https://github.com/Example/CleanMyDev"), "github.com/example/cleanmydev")
         XCTAssertEqual(GitProbe.normalize("ssh://git@github.com/a/b.git"), "github.com/a/b")
     }
 }
@@ -125,10 +125,10 @@ final class SafetyGuardTests: XCTestCase {
     }
 
     func testRefusesNeverTouchAndActiveProjects() {
-        let g = SafetyGuard(neverTouch: ["/Users/x/.ssh"], protectedProjectRoots: ["/Users/x/dev/chatarv"])
+        let g = SafetyGuard(neverTouch: ["/Users/x/.ssh"], protectedProjectRoots: ["/Users/x/dev/myapp"])
         XCTAssertThrowsError(try g.validatePath(URL(filePath: "/Users/x/.ssh/id_ed25519")))
-        XCTAssertThrowsError(try g.validatePath(URL(filePath: "/Users/x/dev/chatarv/node_modules")))
-        XCTAssertNoThrow(try g.validatePath(URL(filePath: "/Users/x/dev/chatarv-old/node_modules")))
+        XCTAssertThrowsError(try g.validatePath(URL(filePath: "/Users/x/dev/myapp/node_modules")))
+        XCTAssertNoThrow(try g.validatePath(URL(filePath: "/Users/x/dev/myapp-old/node_modules")))
     }
 
     func testFirmlinkCanonicalization() {

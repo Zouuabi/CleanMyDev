@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    name: Build DMG and publish release
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.app || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - name: Build Release (ad-hoc signed)
+        run: |
+          xcodebuild -project CleanMyDev.xcodeproj -scheme CleanMyDev -configuration Release \
+            -derivedDataPath build/dd build CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=""
+      - name: Package DMG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          APP=build/dd/Build/Products/Release/CleanMyDev.app
+          mkdir -p dist/root && cp -R "$APP" dist/root/CleanMyDev.app && ln -s /Applications dist/root/Applications
+          hdiutil create -volname "CleanMyDev $VERSION" -srcfolder dist/root -ov -format UDZO "dist/CleanMyDev-$VERSION.dmg"
+          cd dist && shasum -a 256 "CleanMyDev-$VERSION.dmg" > "CleanMyDev-$VERSION.dmg.sha256"
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/CleanMyDev-*.dmg
+            dist/CleanMyDev-*.dmg.sha256
+          generate_release_notes: true
+          body: |
+            ## Install
+            1. Download the `.dmg`, open it, drag **CleanMyDev** to Applications.
+            2. First launch: **right-click → Open** (the build is not notarized), then grant **Full Disk Access** when the app asks.
+            3. Or from a terminal: `xattr -d com.apple.quarantine /Applications/CleanMyDev.app`
+
+            Requires macOS 26 or later.

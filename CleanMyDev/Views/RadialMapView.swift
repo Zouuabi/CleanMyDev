@@ -31,6 +31,7 @@ struct MapNode: Identifiable, Equatable {
 }
 
 struct RadialMapView<Panel: View>: View {
+    @Environment(AppModel.self) private var model
     let root: MapNode
     var selectedFraction: (MapNode) -> Double = { _ in 0 }
     var onToggle: ((MapNode) -> Void)? = nil
@@ -186,6 +187,21 @@ struct RadialMapView<Panel: View>: View {
         }
         .animation(.spring(duration: 0.45), value: picked?.id)
         .onChange(of: root.id) { _, _ in expanded = nil; picked = nil; zoom = 1; pan = .zero }
+        .onChange(of: model.demoAction?.seq) { _, _ in
+            guard let a = model.demoAction?.action else { return }
+            let items = visible
+            switch a {
+            case .tap(let id):
+                if let (n, parent) = items.first(where: { $0.0.id == id }) { tap(n, level: parent == nil ? 0 : parent == root.id ? 1 : 2) }
+            case .toggle(let id):
+                if let n = items.first(where: { $0.0.id == id })?.0 { onToggle?(n) }
+            case .zoom(let f):
+                zoomAround(CGPoint(x: lastSize.width / 2, y: lastSize.height / 2), in: lastSize, factor: f)
+            case .reset:
+                withAnimation(.spring(duration: 0.5)) { expanded = nil; picked = nil; zoom = 1; pan = .zero }
+            case .panelFirst: break
+            }
+        }
         .focusable()
         .focusEffectDisabled()
         .onKeyPress(.space) {

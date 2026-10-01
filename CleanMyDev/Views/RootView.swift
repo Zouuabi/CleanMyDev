@@ -25,6 +25,7 @@ struct RootView: View {
                 if item == .spaceLens { model.scanDisk(root: CMConstants.home) }
             }
             if args.contains("--scan") { model.scan(model.selection) }
+            if let i = args.firstIndex(of: "--demo"), i + 1 < args.count { model.runDemo(args[i + 1]) }
         }
     }
 

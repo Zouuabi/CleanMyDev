@@ -58,6 +58,62 @@ final class AppModel {
     var diskScanProgress: DiskTreeScanner.Progress?
     var diskScanning = false
 
+    /// Scripted interactions for README recordings (`--demo <scene>`).
+    enum DemoAction: Equatable { case tap(String), toggle(String), panelFirst, zoom(CGFloat), reset }
+    var demoAction: (seq: Int, action: DemoAction)? = nil
+    private var demoSeq = 0
+    func demo(_ a: DemoAction) { demoSeq += 1; demoAction = (demoSeq, a) }
+
+    func runDemo(_ scene: String) {
+        let launch = Date()
+        let markerFile = "/tmp/claude-501/demo-\(scene).log"
+        try? "".write(toFile: markerFile, atomically: true, encoding: .utf8)
+        @Sendable func mark(_ label: String) {
+            let line = String(format: "%.1f %@\n", Date().timeIntervalSince(launch), label)
+            if let h = FileHandle(forWritingAtPath: markerFile) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); try? h.close() }
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            @MainActor func pause(_ s: Double) async { try? await Task.sleep(for: .seconds(s)) }
+            @MainActor func waitResults(_ scope: SidebarItem) async { while case .scanning = self.phase(scope) { await pause(0.3) } }
+            @MainActor func waitProjects() async { while self.projects.isEmpty || self.projectsLoading { await pause(0.3) } }
+            @MainActor func waitStack() async { while self.devStack.isEmpty || self.devStackLoading { await pause(0.3) } }
+            switch scene {
+            case "smartcare":
+                self.selection = .smartCare
+                await pause(2.5); mark("scan"); self.scan(.smartCare); await waitResults(.smartCare); mark("results"); await pause(3)
+                self.demo(.tap("system_junk")); mark("expand"); await pause(3.5)
+                self.demo(.tap("cat:userCaches")); await pause(3.5)
+                self.demo(.toggle("cat:userCaches")); await pause(2)
+                self.demo(.toggle("cat:userCaches")); await pause(2)
+                self.demo(.reset); await pause(2)
+                self.demo(.tap("projects")); await pause(3.5)
+                self.demo(.reset); await pause(1.5)
+                self.demo(.tap("devstack")); await pause(3.5)
+                self.demo(.reset); await pause(1.5); mark("end")
+            case "projects":
+                self.selection = .projects
+                await waitProjects(); await pause(2.5); mark("start")
+                self.demo(.tap("ps:active")); await pause(3.5)
+                self.demo(.panelFirst); await pause(4)
+                self.demo(.reset); await pause(2)
+                self.demo(.tap("ps:idle")); await pause(3.5)
+                self.demo(.reset); await pause(1.5)
+                self.demo(.zoom(1.5)); await pause(2); self.demo(.zoom(0.75)); await pause(2); self.demo(.reset); await pause(1.5); mark("end")
+            case "devstack":
+                self.selection = .devStack
+                await waitStack(); await pause(2.5); mark("start")
+                self.demo(.tap("dg:databases")); await pause(3.5)
+                self.demo(.panelFirst); await pause(4)
+                self.demo(.reset); await pause(2)
+                self.demo(.tap("dg:toolchains")); await pause(3.5)
+                self.demo(.panelFirst); await pause(3.5)
+                self.demo(.reset); await pause(1.5); mark("end")
+            default: break
+            }
+        }
+    }
+
     private let runner = ScanRunner(modules: AllModules.make())
     private var statsTimer: Timer?
 
