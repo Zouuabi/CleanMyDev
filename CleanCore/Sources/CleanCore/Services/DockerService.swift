@@ -13,9 +13,11 @@ public actor DockerService: VirtualCleaner {
         public let repository: String
         public let tag: String
         public let sizeBytes: UInt64
+        public let uniqueBytes: UInt64
         public let containers: Int
         public let created: String
         public var ref: String { tag == "<none>" ? imageID : "\(repository):\(tag)" }
+        public var shortID: String { String(imageID.replacingOccurrences(of: "sha256:", with: "").prefix(12)) }
     }
 
     public struct Volume: Sendable, Identifiable {
@@ -85,6 +87,7 @@ public actor DockerService: VirtualCleaner {
                     repository: obj["Repository"] as? String ?? "<none>",
                     tag: obj["Tag"] as? String ?? "<none>",
                     sizeBytes: Self.parseSize(obj["Size"] as? String ?? "0"),
+                    uniqueBytes: Self.parseSize(obj["UniqueSize"] as? String ?? obj["Size"] as? String ?? "0"),
                     containers: Int(obj["Containers"] as? String ?? "0") ?? 0,
                     created: obj["CreatedSince"] as? String ?? ""
                 ))
@@ -129,11 +132,17 @@ public actor DockerService: VirtualCleaner {
             return c.composeProject
         })
         let imagesInUseByProtected = Set(snap.containers.filter { protectedProjects.contains($0.composeProject ?? "") || $0.isRunning }.map(\.image))
+        // Compose names built images "<project>-<service>"; keep those for protected projects too.
+        func belongsToProtectedProject(_ img: Image) -> Bool {
+            protectedProjects.contains { !$0.isEmpty && img.repository.lowercased().hasPrefix($0.lowercased() + "-") }
+        }
 
         var results: [ScanResult] = []
-        let danglingImages = snap.images.filter { $0.containers == 0 && !imagesInUseByProtected.contains($0.ref) }.map { img in
-            FileItem(url: URL(string: "docker://image/\(img.imageID)")!, name: img.ref, size: img.sizeBytes, isDirectory: false,
-                     reason: "Not used by any container · created \(img.created)")
+        let danglingImages = snap.images.filter { $0.containers == 0 && !imagesInUseByProtected.contains($0.ref) && !belongsToProtectedProject($0) }.map { img in
+            let shared = img.sizeBytes > img.uniqueBytes ? " · \(ByteFormatter.string(img.sizeBytes - img.uniqueBytes)) shared with other images" : ""
+            return FileItem(url: URL(string: "docker://image/\(img.imageID)")!, name: img.tag == "<none>" ? "untagged \(img.shortID)" : img.ref,
+                            size: img.uniqueBytes, isDirectory: false,
+                            reason: "No container uses it · created \(img.created)\(shared)")
         }
         if !danglingImages.isEmpty { results.append(ScanResult(category: .dockerImages, items: danglingImages)) }
 

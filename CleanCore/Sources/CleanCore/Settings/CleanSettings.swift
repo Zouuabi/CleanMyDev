@@ -32,7 +32,7 @@ public struct CleanSettings: Codable, Sendable, Equatable {
     public var lastCleanFreedBytes: UInt64
 
     public init(
-        scanRoots: [String] = [CMConstants.home.path(percentEncoded: false)],
+        scanRoots: [String] = [CMConstants.homePath],
         neverTouch: [String] = CleanSettings.defaultNeverTouch,
         activeDays: Int = 14,
         dormantDays: Int = 30,
@@ -64,7 +64,7 @@ public struct CleanSettings: Codable, Sendable, Equatable {
     }
 
     public static let defaultNeverTouch: [String] = {
-        let home = CMConstants.home.path(percentEncoded: false)
+        let home = CMConstants.homePath
         return [
             "\(home)/Library/Keychains",
             "\(home)/Library/Application Support/Claude/vm_bundles",

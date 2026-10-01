@@ -190,6 +190,9 @@ public struct TreemapItem: Identifiable, Sendable {
     public let node: DiskNode
     public let rect: TreemapRect
     public let depth: Int
+    /// True when the item is a directory whose children were laid out inside
+    /// it; the renderer draws its name in a header band instead of the body.
+    public let hasHeader: Bool
 }
 
 /// Squarify (Bruls, Huizing, van Wijk 2000). Adapted from MacDirStat (MIT).
@@ -197,9 +200,10 @@ public struct TreemapLayout: Sendable {
     public var maxDepth: Int
     public var minPixelArea: Double
     public var padding: Double
+    public var headerHeight: Double
 
-    public init(maxDepth: Int = 6, minPixelArea: Double = 16, padding: Double = 2) {
-        self.maxDepth = maxDepth; self.minPixelArea = minPixelArea; self.padding = padding
+    public init(maxDepth: Int = 6, minPixelArea: Double = 16, padding: Double = 2, headerHeight: Double = 16) {
+        self.maxDepth = maxDepth; self.minPixelArea = minPixelArea; self.padding = padding; self.headerHeight = headerHeight
     }
 
     public func layout(root: DiskNode, in bounds: TreemapRect) -> [TreemapItem] {
@@ -211,12 +215,12 @@ public struct TreemapLayout: Sendable {
 
     private func place(_ node: DiskNode, _ bounds: TreemapRect, _ depth: Int, _ items: inout [TreemapItem], _ next: inout Int) {
         guard bounds.area >= minPixelArea else { return }
-        items.append(TreemapItem(id: next, node: node, rect: bounds, depth: depth)); next += 1
-        guard node.isDirectory, depth < maxDepth else { return }
-        let children = node.children.filter { $0.totalSize > 0 }
+        let children = node.isDirectory && depth < maxDepth ? node.children.filter { $0.totalSize > 0 } : []
+        let header = !children.isEmpty && depth > 0 && bounds.height > headerHeight * 2.5 && bounds.width > 40 ? headerHeight : 0
+        items.append(TreemapItem(id: next, node: node, rect: bounds, depth: depth, hasHeader: header > 0)); next += 1
         guard !children.isEmpty else { return }
-        let inner = TreemapRect(x: bounds.x + padding, y: bounds.y + padding + (depth == 0 ? 0 : 0),
-                                width: max(0, bounds.width - 2 * padding), height: max(0, bounds.height - 2 * padding))
+        let inner = TreemapRect(x: bounds.x + padding, y: bounds.y + padding + header,
+                                width: max(0, bounds.width - 2 * padding), height: max(0, bounds.height - 2 * padding - header))
         guard inner.area > 0 else { return }
         let total = Double(children.reduce(0) { $0 + $1.totalSize })
         let sizes = children.map { Double($0.totalSize) / total * inner.area }

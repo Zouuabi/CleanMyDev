@@ -139,6 +139,7 @@ struct SidebarView: View {
             Divider().opacity(0.3)
             diskFooter.padding(12)
         }
+        .frame(minWidth: 250)
         .background(Color(hex: 0x0B0B14).opacity(0.85))
     }
 
@@ -149,8 +150,8 @@ struct SidebarView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(item.theme.accent)
                 .frame(width: 22)
-            Text(item.title)
-            Spacer()
+            Text(item.title).lineLimit(1)
+            Spacer(minLength: 4)
             badge(item)
         }
         .tag(item)
@@ -177,11 +178,10 @@ struct SidebarView: View {
     private var diskFooter: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let s = model.stats {
-                HStack {
+                HStack(spacing: 6) {
                     Image(systemName: "internaldrive").foregroundStyle(.secondary)
-                    Text("\(ByteFormatter.string(s.diskFree)) free").font(.caption.weight(.semibold))
-                    Spacer()
-                    Text("of \(ByteFormatter.string(s.diskTotal))").font(.caption2).foregroundStyle(.secondary)
+                    Text("\(ByteFormatter.string(s.diskFree)) free of \(ByteFormatter.string(s.diskTotal))")
+                        .font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
                 }
                 GeometryReader { g in
                     ZStack(alignment: .leading) {

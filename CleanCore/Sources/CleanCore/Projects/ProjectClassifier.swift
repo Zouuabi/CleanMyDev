@@ -29,7 +29,7 @@ public enum ProjectClassifier {
             return ProjectDecision(status: .active, reason: "A dev server is running from this folder")
         }
         if project.signals.openInEditor {
-            return ProjectDecision(status: .active, reason: "Open in an editor right now")
+            return ProjectDecision(status: .active, reason: "A terminal or editor is open in this folder")
         }
 
         guard let days = project.daysSinceActivity(now: now) else {

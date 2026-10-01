@@ -23,17 +23,8 @@ struct CleanMyDevApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1280, height: 820)
-        .commands {
-            CommandGroup(replacing: .newItem) {}
-            CommandMenu("Scan") {
-                Button("Scan Current Module") { model.scan(model.selection) }.keyboardShortcut("r")
-                Button("Clean Selected") { model.clean(model.selection) }.keyboardShortcut("k")
-                Divider()
-                Button("Run Smart Care") { model.selection = .smartCare; model.scan(.smartCare) }.keyboardShortcut("r", modifiers: [.command, .shift])
-            }
-        }
 
-        MenuBarExtra(isInserted: Binding(get: { model.settings.menuBarEnabled }, set: { model.settings.menuBarEnabled = $0 })) {
+        MenuBarExtra(isInserted: Binding(get: { model.settings.menuBarEnabled }, set: { if model.settings.menuBarEnabled != $0 { model.settings.menuBarEnabled = $0 } })) {
             MenuBarView().environment(model)
         } label: {
             HStack(spacing: 4) {

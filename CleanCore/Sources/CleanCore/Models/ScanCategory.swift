@@ -87,7 +87,7 @@ public enum ScanCategory: String, CaseIterable, Identifiable, Sendable, Codable 
         case .simulators: "Simulator devices whose runtime is gone or that are unused."
         case .projectDependencies: "node_modules, venvs, Pods in projects you haven't touched in a while."
         case .projectBuildOutput: ".next, dist, target, build in dormant projects."
-        case .dockerImages: "Images not used by any container."
+        case .dockerImages: "Images no container uses. Sizes count only layers not shared with kept images."
         case .dockerVolumes: "Volumes not attached to any container."
         case .dockerBuildCache: "BuildKit layer cache."
         case .dockerContainers: "Containers that exited and never restarted."
@@ -144,7 +144,7 @@ public enum ScanCategory: String, CaseIterable, Identifiable, Sendable, Codable 
         switch self {
         case .largeFiles, .oldFiles, .duplicates, .appLeftovers,
              .projectDependencies, .projectBuildOutput, .mlModelCaches,
-             .dockerVolumes, .iosDeviceBackups, .browserHistory, .simulators,
+             .dockerVolumes, .dockerImages, .iosDeviceBackups, .browserHistory, .simulators,
              .brokenPreferences, .malware, .suspiciousPersistence:
             false
         default:

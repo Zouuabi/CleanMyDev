@@ -66,7 +66,7 @@ struct QuarantineView: View {
                 VStack(spacing: 0) {
                     ForEach(run.entries) { e in
                         HStack {
-                            Text(e.original.replacingOccurrences(of: CMConstants.home.path(percentEncoded: false), with: "~"))
+                            Text(e.original.replacingOccurrences(of: CMConstants.homePath, with: "~"))
                                 .font(.caption.monospaced()).lineLimit(1).truncationMode(.middle)
                             Spacer()
                             Text(ByteFormatter.string(e.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)

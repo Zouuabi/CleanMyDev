@@ -57,6 +57,7 @@ struct HeroView<Header: View>: View {
             }
             Spacer()
             BigScanButton(title: scope.scanTitle, tint: scope.theme.accent, isBusy: false) { model.scan(scope) }
+                .keyboardShortcut("r")
                 .padding(.bottom, 36)
         }
         .padding(.horizontal, 40)
@@ -207,6 +208,7 @@ struct ResultsView: View {
             .keyboardShortcut("k")
         }
         .padding(.horizontal, 22).padding(.vertical, 14)
+        .background(Color(hex: 0x0B0B14).opacity(0.72), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .glassCard(radius: 22)
         .padding(.horizontal, 28).padding(.bottom, 20)
         .confirmationDialog("Delete \(count) items permanently?", isPresented: $confirmPermanent) {
@@ -294,7 +296,7 @@ struct ItemRow: View {
                     Text(reason).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 if item.url.isFileURL {
-                    Text(item.path.replacingOccurrences(of: CMConstants.home.path(percentEncoded: false), with: "~"))
+                    Text(item.path.replacingOccurrences(of: CMConstants.homePath, with: "~"))
                         .font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
                 }
             }

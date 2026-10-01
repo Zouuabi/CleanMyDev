@@ -33,6 +33,12 @@ public enum CMConstants {
     // MARK: - Home / Library
 
     public static let home = FileManager.default.homeDirectoryForCurrentUser
+    /// Home path without the trailing slash URL.path adds, for string prefix work.
+    public static let homePath: String = {
+        var p = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
+        while p.count > 1 && p.hasSuffix("/") { p.removeLast() }
+        return p
+    }()
     public static let userLibrary = home.appending(path: "Library")
     public static let userCaches = userLibrary.appending(path: "Caches")
     public static let userLogs = userLibrary.appending(path: "Logs")

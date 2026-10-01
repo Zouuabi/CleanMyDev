@@ -110,8 +110,14 @@ struct SpaceLensView: View {
                     let path = Path(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), cornerRadius: 3)
                     ctx.fill(path, with: .color(fill))
                     ctx.stroke(path, with: .color(.black.opacity(0.35)), lineWidth: 0.5)
-                    if r.width > 70 && r.height > 18 {
-                        let label = Text(item.node.name).font(.system(size: 10, weight: item.node.isDirectory ? .semibold : .regular)).foregroundColor(.white.opacity(0.9))
+                    let isLeaf = !item.node.isDirectory || item.node.children.isEmpty
+                    if item.hasHeader {
+                        let band = Path(roundedRect: CGRect(x: r.minX, y: r.minY, width: r.width, height: 16), cornerRadius: 3)
+                        ctx.fill(band, with: .color(.black.opacity(0.28)))
+                        let label = Text("\(item.node.name)  \(item.node.formattedSize)").font(.system(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.92))
+                        ctx.draw(label, in: CGRect(x: r.minX + 5, y: r.minY + 1, width: r.width - 10, height: 14))
+                    } else if isLeaf && r.width > 60 && r.height > 18 {
+                        let label = Text(item.node.name).font(.system(size: 10)).foregroundColor(.white.opacity(0.85))
                         ctx.draw(label, in: CGRect(x: r.minX + 4, y: r.minY + 3, width: r.width - 8, height: 14))
                     }
                 }
@@ -143,7 +149,7 @@ struct SpaceLensView: View {
     private func relayout(root: DiskNode, size: CGSize) {
         guard size.width > 10, size.height > 10 else { return }
         lastSize = size
-        items = TreemapLayout(maxDepth: 5, minPixelArea: 20, padding: 3)
+        items = TreemapLayout(maxDepth: 5, minPixelArea: 40, padding: 3, headerHeight: 16)
             .layout(root: root, in: TreemapRect(x: 0, y: 0, width: size.width, height: size.height))
     }
 
@@ -151,13 +157,13 @@ struct SpaceLensView: View {
         VStack(alignment: .leading, spacing: 12) {
             if let h = hovered {
                 Text(h.name).font(.headline).lineLimit(2)
-                Text(h.path.replacingOccurrences(of: CMConstants.home.path(percentEncoded: false), with: "~")).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(3)
+                Text(h.path.replacingOccurrences(of: CMConstants.homePath, with: "~")).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(3)
                 SizeText(bytes: UInt64(max(h.totalSize, 0)), font: .title2.weight(.bold))
                 if h.isDirectory { Text("\(h.fileCount.formatted()) files").font(.caption).foregroundStyle(.secondary) }
                 if let d = h.modificationDate { Text("Modified \(d.relativeDescription)").font(.caption).foregroundStyle(.secondary) }
                 Divider().opacity(0.3)
             } else {
-                Text(root.name == CMConstants.home.path(percentEncoded: false) ? "Home" : root.name).font(.headline)
+                Text(root.name == CMConstants.homePath ? "Home" : root.name).font(.headline)
                 SizeText(bytes: UInt64(max(root.totalSize, 0)), font: .title2.weight(.bold))
                 Text("Hover a block for details. Double-click a folder to zoom in.").font(.caption).foregroundStyle(.secondary)
                 Divider().opacity(0.3)

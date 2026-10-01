@@ -76,7 +76,7 @@ struct ProjectsStrip: View {
                 Button(showAll ? "Show fewer" : "Show all \(affecting.count)") { showAll.toggle() }.buttonStyle(.plain).font(.caption).foregroundStyle(ModuleTheme.developer.accent)
                 Button("Open Projects") { model.selection = .projects }.buttonStyle(.plain).font(.caption).foregroundStyle(ModuleTheme.developer.accent)
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 10)], spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 10)], spacing: 10) {
                 ForEach(list) { entry in
                     ProjectChipCard(entry: entry)
                 }
@@ -92,15 +92,15 @@ struct ProjectChipCard: View {
     let entry: ProjectScanService.Entry
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: entry.project.kinds.first?.symbol ?? "folder").foregroundStyle(ModuleTheme.developer.accent).frame(width: 20)
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: entry.project.kinds.first?.symbol ?? "folder").foregroundStyle(ModuleTheme.developer.accent).frame(width: 18)
                 Text(entry.project.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(entry.decision.reason).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Spacer(minLength: 6)
+                Text(entry.project.formattedArtifactSize).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                StatusMenu(entry: entry)
             }
-            Spacer()
-            Text(entry.project.formattedArtifactSize).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            StatusMenu(entry: entry)
+            Text(entry.decision.reason).font(.caption).foregroundStyle(.secondary).lineLimit(1)
         }
         .padding(10)
         .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))

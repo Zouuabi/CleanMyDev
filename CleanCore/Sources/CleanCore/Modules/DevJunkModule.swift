@@ -95,15 +95,31 @@ public actor ProjectScanService {
         for i in projects.indices {
             projects[i].signals = signals.signals(for: projects[i].root)
         }
-        entries = projects.map { Entry(project: $0, decision: ProjectClassifier.decide($0, registry: context.registry, settings: context.settings, now: context.now)) }
+        entries = Self.applyAncestorProtection(projects.map { Entry(project: $0, decision: ProjectClassifier.decide($0, registry: context.registry, settings: context.settings, now: context.now)) })
         lastRefresh = Date()
         return entries
     }
 
     /// Re-run decisions without re-walking the disk (after a pin changes).
     public func reclassify(context: ScanContext) -> [Entry] {
-        entries = entries.map { Entry(project: $0.project, decision: ProjectClassifier.decide($0.project, registry: context.registry, settings: context.settings, now: context.now)) }
+        entries = Self.applyAncestorProtection(entries.map { Entry(project: $0.project, decision: ProjectClassifier.decide($0.project, registry: context.registry, settings: context.settings, now: context.now)) })
         return entries
+    }
+
+    /// A sub-project inside an active or pinned project inherits that protection:
+    /// a monorepo package untouched for a month is still part of a live repo.
+    static func applyAncestorProtection(_ entries: [Entry]) -> [Entry] {
+        let protected = entries.filter { !$0.decision.status.allowsCleaning && !$0.decision.isOverride || $0.decision.status == .pinned }
+        return entries.map { e in
+            guard e.decision.status.allowsCleaning else { return e }
+            if let parent = protected.first(where: { $0.project.path != e.project.path && PathExclusion.isInside(e.project.path, root: $0.project.path) }) {
+                var copy = e
+                copy.decision = ProjectDecision(status: parent.decision.status,
+                                                reason: "Inside \(parent.project.name), which is \(parent.decision.status.displayName.lowercased())")
+                return copy
+            }
+            return e
+        }
     }
 
     /// Roots of projects that must not be touched, for the SafetyGuard.

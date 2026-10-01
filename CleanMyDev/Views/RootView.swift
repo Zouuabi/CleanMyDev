@@ -7,7 +7,7 @@ struct RootView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 280)
+                .navigationSplitViewColumnWidth(min: 250, ideal: 270, max: 340)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
             ZStack {
@@ -19,6 +19,14 @@ struct RootView: View {
             .toolbarBackground(.hidden, for: .windowToolbar)
         }
         .navigationTitle("")
+        .task {
+            let args = CommandLine.arguments
+            if let i = args.firstIndex(of: "--open"), i + 1 < args.count, let item = SidebarItem(rawValue: args[i + 1]) {
+                model.selection = item
+                if item == .spaceLens { model.scanDisk(root: CMConstants.home) }
+            }
+            if args.contains("--scan") { model.scan(model.selection) }
+        }
     }
 
     @ViewBuilder

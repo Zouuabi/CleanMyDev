@@ -8,8 +8,8 @@ import CleanCore
 @MainActor
 final class AppModel {
     // MARK: Persistent
-    var settings: CleanSettings { didSet { try? settings.save() } }
-    var registry: ProjectRegistry { didSet { try? registry.save() } }
+    var settings: CleanSettings { didSet { if oldValue != settings { try? settings.save() } } }
+    var registry: ProjectRegistry { didSet { if oldValue != registry { try? registry.save() } } }
 
     // MARK: Navigation
     var selection: SidebarItem = .smartCare
@@ -194,7 +194,18 @@ final class AppModel {
         Task { [weak self] in
             let entries = await ProjectScanService.shared.refresh(context: ctx)
             await MainActor.run { self?.projects = entries; self?.projectsLoading = false }
+            Self.dumpIfRequested(entries)
         }
+    }
+
+    /// Debug aid: `--dump-projects <file>` writes the classified list as text.
+    nonisolated static func dumpIfRequested(_ entries: [ProjectScanService.Entry]) {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--dump-projects"), i + 1 < args.count else { return }
+        let lines = entries.map { e in
+            "\(e.decision.status.rawValue)\t\(e.project.formattedArtifactSize)\t\(e.project.path)\t\(e.decision.reason)\tcontainers=\(e.project.signals.runningContainers)"
+        }
+        try? lines.joined(separator: "\n").write(toFile: args[i + 1], atomically: true, encoding: .utf8)
     }
 
     func setStatus(_ entry: ProjectScanService.Entry, to status: ProjectStatus?, until: Date? = nil) {

@@ -9,7 +9,7 @@ public struct ProjectDetector: Sendable {
     public var maxDepth: Int
     public var skipNames: Set<String>
 
-    public init(maxDepth: Int = 6, skipNames: Set<String> = ProjectDetector.defaultSkipNames) {
+    public init(maxDepth: Int = 7, skipNames: Set<String> = ProjectDetector.defaultSkipNames) {
         self.maxDepth = maxDepth
         self.skipNames = skipNames
     }
@@ -17,8 +17,21 @@ public struct ProjectDetector: Sendable {
     public static let defaultSkipNames: Set<String> = [
         "Library", "Applications", "Pictures", "Music", "Movies", "Public",
         "node_modules", "Pods", ".git", "venv", ".venv", "target", "vendor",
-        "DerivedData", "build", "dist", ".build", "__pycache__",
+        "DerivedData", "build", "dist", ".build", "__pycache__", "site-packages",
     ]
+
+    /// Bundle-style folders are never projects and never contain user projects.
+    static let bundleSuffixes = [".xcodeproj", ".xcworkspace", ".app", ".framework", ".bundle", ".playground", ".xcassets", ".photoslibrary"]
+
+    /// Tool-managed trees under the home folder that look like projects but aren't.
+    static let skipPaths: [String] = {
+        let home = CMConstants.homePath
+        return ["\(home)/go/pkg", "\(home)/Library", "\(home)/.Trash"]
+    }()
+
+    static func shouldSkip(name: String, detector: ProjectDetector) -> Bool {
+        name.hasPrefix(".") || detector.skipNames.contains(name) || bundleSuffixes.contains { name.hasSuffix($0) }
+    }
 
     /// Pure: which kinds match a folder given its immediate entry names.
     public static func matchKinds(forEntries entries: Set<String>) -> [ProjectKind] {
@@ -32,52 +45,65 @@ public struct ProjectDetector: Sendable {
         }
     }
 
-    public func discover(roots: [URL], neverTouch: [String] = []) async -> [Project] {
-        await withTaskGroup(of: [Project].self) { group in
-            for root in roots {
-                group.addTask { Self.walk(root, depth: 0, detector: self, neverTouch: neverTouch) }
-            }
-            var all: [Project] = []
-            var seen = Set<String>()
-            for await batch in group {
-                for p in batch where seen.insert(p.path).inserted { all.append(p) }
-            }
-            return all.sorted { $0.totalArtifactBytes > $1.totalArtifactBytes }
-        }
+    struct Candidate: Sendable {
+        let root: URL; let kinds: [ProjectKind]; let entries: Set<String>
+        var isRepo: Bool { entries.contains(ProjectKind.repoMarker) }
     }
 
-    private static func walk(_ dir: URL, depth: Int, detector: ProjectDetector, neverTouch: [String]) -> [Project] {
+    public func discover(roots: [URL], neverTouch: [String] = []) async -> [Project] {
+        var candidates: [Candidate] = []
+        var seen = Set<String>()
+        for root in roots {
+            for c in Self.walk(root, depth: 0, detector: self, neverTouch: neverTouch)
+            where seen.insert(c.root.path(percentEncoded: false)).inserted {
+                candidates.append(c)
+            }
+        }
+        // Sizing artifact dirs is the slow part; do it with bounded parallelism.
+        let projects: [Project] = await withTaskGroup(of: Project?.self) { group in
+            var out: [Project] = []
+            var iterator = candidates.makeIterator()
+            let width = max(2, ProcessInfo.processInfo.activeProcessorCount - 1)
+            for _ in 0..<width {
+                if let c = iterator.next() { group.addTask { Self.makeProject(root: c.root, kinds: c.kinds, entries: c.entries) } }
+            }
+            for await p in group {
+                if let p { out.append(p) }
+                if let c = iterator.next() { group.addTask { Self.makeProject(root: c.root, kinds: c.kinds, entries: c.entries) } }
+            }
+            return out
+        }
+        // Workspace sub-packages with nothing of their own to clean and no
+        // repo of their own are noise: a monorepo is one project.
+        let repoRoots = Set(candidates.filter(\.isRepo).map { $0.root.path(percentEncoded: false) })
+        let allRoots = candidates.map { $0.root.path(percentEncoded: false) }
+        let kept = projects.filter { p in
+            if p.totalArtifactBytes >= 1_000_000 || repoRoots.contains(p.path) { return true }
+            let nested = allRoots.contains { $0 != p.path && PathExclusion.isInside(p.path, root: $0) }
+            return !nested
+        }
+        return kept.sorted { $0.totalArtifactBytes > $1.totalArtifactBytes }
+    }
+
+    private static func walk(_ dir: URL, depth: Int, detector: ProjectDetector, neverTouch: [String]) -> [Candidate] {
         guard depth <= detector.maxDepth else { return [] }
-        if PathExclusion.isExcluded(dir, by: neverTouch) { return [] }
+        let path = dir.path(percentEncoded: false)
+        if PathExclusion.isExcluded(path: path, by: neverTouch) || PathExclusion.isExcluded(path: path, by: skipPaths) { return [] }
         let fm = FileManager.default
-        guard let entries = try? fm.contentsOfDirectory(atPath: dir.path(percentEncoded: false)) else { return [] }
+        guard let entries = try? fm.contentsOfDirectory(atPath: path) else { return [] }
         let entrySet = Set(entries)
 
         let kinds = matchKinds(forEntries: entrySet)
         let isRepo = entrySet.contains(ProjectKind.repoMarker)
 
-        var found: [Project] = []
+        var found: [Candidate] = []
         if !kinds.isEmpty || isRepo {
-            if let project = Self.makeProject(root: dir, kinds: kinds, entries: entrySet) {
-                found.append(project)
-            }
-            // One more level for monorepos / workspaces, then stop.
-            if depth < detector.maxDepth {
-                for name in entries where !name.hasPrefix(".") && !detector.skipNames.contains(name)
-                    && !kinds.flatMap(\.artifactDirs).contains(name) {
-                    let child = dir.appending(path: name)
-                    guard Self.isDirectory(child) else { continue }
-                    let sub = Set((try? fm.contentsOfDirectory(atPath: child.path(percentEncoded: false))) ?? [])
-                    let subKinds = matchKinds(forEntries: sub)
-                    if !subKinds.isEmpty, let p = Self.makeProject(root: child, kinds: subKinds, entries: sub) {
-                        found.append(p)
-                    }
-                }
-            }
-            return found
+            found.append(Candidate(root: dir, kinds: kinds, entries: entrySet))
         }
-
-        for name in entries where !name.hasPrefix(".") && !detector.skipNames.contains(name) {
+        // Keep walking below a project too: workspaces and "misc" folders nest
+        // real projects several levels down. Artifact dirs are never entered.
+        let artifactNames = Set(kinds.flatMap(\.artifactDirs))
+        for name in entries where !shouldSkip(name: name, detector: detector) && !artifactNames.contains(name) {
             let child = dir.appending(path: name)
             guard Self.isDirectory(child) else { continue }
             found.append(contentsOf: walk(child, depth: depth + 1, detector: detector, neverTouch: neverTouch))

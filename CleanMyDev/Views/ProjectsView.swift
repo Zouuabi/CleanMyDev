@@ -6,9 +6,11 @@ struct ProjectsView: View {
     @Environment(AppModel.self) private var model
     @State private var filter: ProjectStatus? = nil
     @State private var search = ""
+    @State private var onlyWithArtifacts = true
 
     private var rows: [ProjectScanService.Entry] {
         model.projects
+            .filter { !onlyWithArtifacts || !$0.project.artifacts.isEmpty }
             .filter { filter == nil || $0.decision.status == filter }
             .filter { search.isEmpty || $0.project.name.localizedCaseInsensitiveContains(search) || $0.project.path.localizedCaseInsensitiveContains(search) }
             .sorted { $0.project.totalArtifactBytes > $1.project.totalArtifactBytes }
@@ -17,7 +19,15 @@ struct ProjectsView: View {
     var body: some View {
         VStack(spacing: 0) {
             header.padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 12)
-            if model.projects.isEmpty && !model.projectsLoading {
+            if model.projectsLoading && model.projects.isEmpty {
+                VStack(spacing: 14) {
+                    Spacer()
+                    ProgressView().controlSize(.large)
+                    Text("Finding projects…").font(.title3.weight(.semibold))
+                    Text("Walking your scan roots and sizing dependencies and build output.").foregroundStyle(.secondary)
+                    Spacer()
+                }
+            } else if model.projects.isEmpty {
                 VStack(spacing: 14) {
                     Spacer()
                     Image(systemName: "folder.badge.gearshape").font(.system(size: 72)).foregroundStyle(ModuleTheme.developer.accent)
@@ -47,7 +57,8 @@ struct ProjectsView: View {
                 Text("Active and pinned projects are never touched. Dormant ones give up their dependencies and build output.").foregroundStyle(.secondary)
             }
             Spacer()
-            TextField("Search", text: $search).textFieldStyle(.roundedBorder).frame(width: 200)
+            Toggle("Only with deps or build output", isOn: $onlyWithArtifacts).toggleStyle(.switch).controlSize(.small)
+            TextField("Search", text: $search).textFieldStyle(.roundedBorder).frame(width: 180)
             Button { model.refreshProjects() } label: {
                 if model.projectsLoading { ProgressView().controlSize(.small) } else { Label("Rescan", systemImage: "arrow.clockwise") }
             }
@@ -98,7 +109,7 @@ struct ProjectRow: View {
                         Text(entry.project.name).font(.headline)
                         Text(entry.project.kindSummary).font(.caption).foregroundStyle(.secondary)
                     }
-                    Text(entry.project.path.replacingOccurrences(of: CMConstants.home.path(percentEncoded: false), with: "~"))
+                    Text(entry.project.path.replacingOccurrences(of: CMConstants.homePath, with: "~"))
                         .font(.caption2.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
                     HStack(spacing: 10) {
                         Text(entry.decision.reason).font(.caption).foregroundStyle(entry.decision.status.tint)
@@ -109,7 +120,7 @@ struct ProjectRow: View {
                             Label("dev server", systemImage: "bolt.horizontal").font(.caption2).foregroundStyle(.secondary)
                         }
                         if entry.project.signals.openInEditor {
-                            Label("terminal open", systemImage: "terminal").font(.caption2).foregroundStyle(.secondary)
+                            Label("shell open here", systemImage: "terminal").font(.caption2).foregroundStyle(.secondary)
                         }
                     }
                 }

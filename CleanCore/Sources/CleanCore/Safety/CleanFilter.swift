@@ -19,6 +19,9 @@ public enum CleanFilter {
     }
 
     public static func isActionable(_ url: URL, neverTouch: [String]) -> Bool {
-        isCleanableByCurrentProcess(url) && !PathExclusion.isExcluded(url, by: neverTouch)
+        // Docker images, simulators and other virtual items are cleaned by
+        // their own service; the file-system probe does not apply.
+        guard url.isFileURL else { return true }
+        return isCleanableByCurrentProcess(url) && !PathExclusion.isExcluded(url, by: neverTouch)
     }
 }
