@@ -10,14 +10,12 @@ struct RootView: View {
                 .navigationSplitViewColumnWidth(min: 250, ideal: 270, max: 340)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
-            ZStack {
-                ThemeBackground(theme: model.selection.theme)
-                detail(for: model.selection)
-                    .id(model.selection)
-                    .transition(.opacity)
-            }
-            .toolbarBackground(.hidden, for: .windowToolbar)
+            detail(for: model.selection)
+                .id(model.selection)
+                .transition(.opacity)
+                .toolbarBackground(.hidden, for: .windowToolbar)
         }
+        .background { ThemeBackground(theme: model.selection.theme) }
         .navigationTitle("")
         .task {
             let args = CommandLine.arguments
@@ -34,6 +32,7 @@ struct RootView: View {
         switch item {
         case .smartCare: SmartCareView()
         case .projects: ProjectsView()
+        case .devStack: DevStackView()
         case .ports: PortsView()
         case .startupItems: StartupItemsView()
         case .uninstaller: UninstallerView()

@@ -4,7 +4,7 @@ import CleanCore
 enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
     case smartCare
     case systemJunk, browsers, trash
-    case projects, devJunk, docker, simulators, ports
+    case projects, devStack, devJunk, docker, simulators, ports
     case protection, startupItems
     case uninstaller
     case spaceLens, largeFiles
@@ -19,6 +19,7 @@ enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
         case .browsers: "Browsers"
         case .trash: "Trash"
         case .projects: "Projects"
+        case .devStack: "Dev Stack"
         case .devJunk: "Dev Junk"
         case .docker: "Docker"
         case .simulators: "Simulators"
@@ -39,6 +40,7 @@ enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
         case .browsers: "Page caches and history for Chrome, Edge, Brave, Arc, Firefox and Safari. Logins stay."
         case .trash: "Everything sitting in the Trash, on every volume."
         case .projects: "Every project on this Mac with its status. Pin what you're working on."
+        case .devStack: "Databases, runtimes, global tools, SDKs and VM disks, discovered from where tools keep them."
         case .devJunk: "Package manager caches, Xcode junk, and dependencies of dormant projects."
         case .docker: "Unused images, orphan volumes, stopped containers and build cache. Running projects are untouched."
         case .simulators: "Simulator devices that can't boot or haven't been used in a while."
@@ -59,6 +61,7 @@ enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
         case .browsers: "safari"
         case .trash: "trash"
         case .projects: "folder.badge.gearshape"
+        case .devStack: "cylinder.split.1x2"
         case .devJunk: "shippingbox"
         case .docker: "cube.transparent"
         case .simulators: "iphone.gen3"
@@ -76,7 +79,7 @@ enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .smartCare: .smart
         case .systemJunk, .browsers, .trash: .cleanup
-        case .projects, .devJunk, .docker, .simulators, .ports: .developer
+        case .projects, .devStack, .devJunk, .docker, .simulators, .ports: .developer
         case .protection, .startupItems: .protection
         case .uninstaller: .applications
         case .spaceLens, .largeFiles: .files
@@ -111,7 +114,7 @@ enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
     static let groups: [(String, [SidebarItem])] = [
         ("", [.smartCare]),
         ("Cleanup", [.systemJunk, .browsers, .trash]),
-        ("Developer", [.projects, .devJunk, .docker, .simulators, .ports]),
+        ("Developer", [.projects, .devStack, .devJunk, .docker, .simulators, .ports]),
         ("Protection", [.protection, .startupItems]),
         ("Applications", [.uninstaller]),
         ("Files", [.spaceLens, .largeFiles]),
@@ -140,7 +143,6 @@ struct SidebarView: View {
             diskFooter.padding(12)
         }
         .frame(minWidth: 250)
-        .background(Color(hex: 0x0B0B14).opacity(0.85))
     }
 
     @ViewBuilder

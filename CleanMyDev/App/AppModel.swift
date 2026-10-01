@@ -47,6 +47,8 @@ final class AppModel {
     var quarantineRuns: [QuarantineManifest] = []
     var persistence: [PersistenceItem] = []
     var ports: [OpenPort] = []
+    var devStack: [DevStackItem] = []
+    var devStackLoading = false
     var diskRoot: DiskNode?
     var diskScanProgress: DiskTreeScanner.Progress?
     var diskScanning = false
@@ -266,6 +268,14 @@ final class AppModel {
         quarantineRuns = QuarantineStore.runs()
         if includeApp, r.removedURLs.contains(app.path) { apps.removeAll { $0 == app } }
         return r
+    }
+
+    func loadDevStack() {
+        devStackLoading = true
+        Task { [weak self] in
+            let items = await DevStackInventory.collect()
+            await MainActor.run { self?.devStack = items; self?.devStackLoading = false }
+        }
     }
 
     // MARK: - Protection, ports, disk

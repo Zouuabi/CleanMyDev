@@ -4,6 +4,7 @@ import CleanCore
 @main
 struct CleanMyDevApp: App {
     @State private var model = AppModel()
+    @State private var gate = PermissionGate()
 
     init() {
         if CommandLine.arguments.contains("--background-clean") {
@@ -16,8 +17,15 @@ struct CleanMyDevApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(model)
+            Group {
+                if gate.hasFullDiskAccess || CommandLine.arguments.contains("--skip-fda") {
+                    RootView()
+                } else {
+                    PermissionGateView()
+                }
+            }
+            .environment(gate)
+            .environment(model)
                 .frame(minWidth: 1080, minHeight: 700)
                 .preferredColorScheme(.dark)
         }

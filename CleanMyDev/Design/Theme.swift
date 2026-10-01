@@ -63,18 +63,17 @@ struct GlassCardModifier: ViewModifier {
         content
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(.ultraThinMaterial.opacity(0.55))
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(LinearGradient(colors: [Color.white.opacity(0.10), Color.white.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .fill(LinearGradient(colors: [Color.white.opacity(0.07), Color.white.opacity(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing))
                 if let tint {
                     RoundedRectangle(cornerRadius: radius, style: .continuous).fill(tint.opacity(0.10))
                 }
             }
+            .glassEffect(.regular.tint(Color.black.opacity(0.18)), in: .rect(cornerRadius: radius))
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(LinearGradient(colors: [Color.white.opacity(0.28), Color.white.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                    .strokeBorder(LinearGradient(colors: [Color.white.opacity(0.22), Color.white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
             }
-            .shadow(color: .black.opacity(0.25), radius: 18, y: 8)
+            .shadow(color: .black.opacity(0.22), radius: 16, y: 8)
     }
 }
 
