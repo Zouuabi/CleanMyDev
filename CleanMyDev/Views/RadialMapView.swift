@@ -138,6 +138,7 @@ struct RadialMapView<Panel: View>: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .modifier(SizeReader { canvasSize = $0 })
+                .modifier(ScrollWheelZoom { delta, point in zoomAround(point, in: geo.size, factor: exp(delta * 0.012)) })
                 .gesture(
                     DragGesture(minimumDistance: 4)
                         .onChanged { gesturePan = $0.translation }
@@ -306,6 +307,21 @@ struct RadialMapView<Panel: View>: View {
     }
 
     private var lastSize: CGSize { canvasSize == .zero ? CGSize(width: 1000, height: 650) : canvasSize }
+
+    /// Zoom by `factor` keeping the content under `cursor` (view coordinates) fixed.
+    /// screen = center + (p − center)·zoom + pan, so solve for the content point
+    /// under the cursor, then pick the pan that puts it back there at the new zoom.
+    private func zoomAround(_ cursor: CGPoint, in size: CGSize, factor: CGFloat) {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let newZoom = min(max(zoom * factor, 0.5), 4)
+        let contentX = center.x + (cursor.x - center.x - pan.width) / zoom
+        let contentY = center.y + (cursor.y - center.y - pan.height) / zoom
+        withAnimation(.interactiveSpring(duration: 0.12)) {
+            pan = CGSize(width: cursor.x - center.x - (contentX - center.x) * newZoom,
+                         height: cursor.y - center.y - (contentY - center.y) * newZoom)
+            zoom = newZoom
+        }
+    }
 }
 
 /// Reads the canvas size into the map so programmatic focus can do its maths.
