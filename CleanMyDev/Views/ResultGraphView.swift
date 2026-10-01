@@ -82,7 +82,9 @@ struct ResultGraphView: View {
     }
 
     var body: some View {
-        RadialMapView(root: root, selectedFraction: fraction, onToggle: toggle) { n in
+        RadialMapView(root: root, selectedFraction: fraction, onToggle: toggle, isSelectable: { n in
+            switch n.payload { case .module, .category: true; default: false }
+        }) { n in
             switch n.payload {
             case .category(let c):
                 if let cat = category(c) {

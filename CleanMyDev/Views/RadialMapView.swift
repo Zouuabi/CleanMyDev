@@ -34,6 +34,8 @@ struct RadialMapView<Panel: View>: View {
     let root: MapNode
     var selectedFraction: (MapNode) -> Double = { _ in 0 }
     var onToggle: ((MapNode) -> Void)? = nil
+    /// Which nodes carry a selection checkbox (modules and categories in results).
+    var isSelectable: (MapNode) -> Bool = { _ in false }
     @ViewBuilder var panel: (MapNode) -> Panel
 
     @State private var expanded: String? = nil
@@ -184,6 +186,13 @@ struct RadialMapView<Panel: View>: View {
         }
         .animation(.spring(duration: 0.45), value: picked?.id)
         .onChange(of: root.id) { _, _ in expanded = nil; picked = nil; zoom = 1; pan = .zero }
+        .focusable()
+        .focusEffectDisabled()
+        .onKeyPress(.space) {
+            guard let h = hovered, let onToggle, let n = visible.first(where: { $0.0.id == h })?.0, isSelectable(n) else { return .ignored }
+            onToggle(n); SoundFX.tap()
+            return .handled
+        }
     }
 
     private func dimmed(_ n: MapNode, _ parent: String?) -> Bool {
@@ -244,6 +253,19 @@ struct RadialMapView<Panel: View>: View {
                 Text("\(n.children.count)").font(.system(size: 9, weight: .bold)).foregroundStyle(.black.opacity(0.8))
                     .padding(.horizontal, 5).padding(.vertical, 1).background(n.tint, in: Capsule())
                     .offset(x: radius * 0.6, y: radius * 0.6)
+            }
+            if level > 0, isSelectable(n), let onToggle {
+                let state: String = frac >= 0.999 ? "checkmark.circle.fill" : frac > 0 ? "minus.circle.fill" : "circle"
+                Image(systemName: state)
+                    .font(.system(size: 18, weight: .semibold))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(frac > 0 ? Color.black.opacity(0.8) : Color.white.opacity(0.9), frac > 0 ? n.tint : Color.black.opacity(0.45))
+                    .background(Circle().fill(Color.black.opacity(0.35)).padding(-2))
+                    .offset(x: -radius * 0.68, y: -radius * 0.68)
+                    .contentShape(Circle().scale(1.6))
+                    .onTapGesture { onToggle(n); SoundFX.tap() }
+                    .help(frac >= 0.999 ? "Deselect" : "Select")
+                    .contentTransition(.symbolEffect(.replace))
             }
         }
         .frame(width: radius * 2, height: radius * 2)

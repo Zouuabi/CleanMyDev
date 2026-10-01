@@ -159,6 +159,15 @@ final class AppModel {
         selected[scope] = s
     }
 
+    func selectAll(_ scope: SidebarItem) { selected[scope] = Set(allItems(scope).map(\.url)); SoundFX.tap() }
+    func selectNone(_ scope: SidebarItem) { selected[scope] = []; SoundFX.tap() }
+    func selectRecommended(_ scope: SidebarItem) {
+        var s = Set<URL>()
+        for c in results(scope).flatMap(\.categories) where c.autoSelect { c.items.forEach { s.insert($0.url) } }
+        selected[scope] = s
+        SoundFX.tap()
+    }
+
     func isCategoryFullySelected(_ cat: ScanResult, in scope: SidebarItem) -> Bool {
         let s = selection(scope)
         return !cat.items.isEmpty && cat.items.allSatisfy { s.contains($0.url) }

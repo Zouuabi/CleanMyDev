@@ -136,6 +136,15 @@ struct ResultsView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Menu {
+                Button { model.selectRecommended(scope) } label: { Label("Recommended (safe categories)", systemImage: "sparkles") }
+                Button { model.selectAll(scope) } label: { Label("Everything", systemImage: "checkmark.circle") }
+                Button { model.selectNone(scope) } label: { Label("Nothing", systemImage: "circle") }
+            } label: {
+                Label("Select", systemImage: "checklist")
+            }
+            .menuStyle(.borderlessButton).fixedSize().foregroundStyle(.white)
+            .padding(.horizontal, 12).padding(.vertical, 7).glassEffect(.regular.interactive(), in: .capsule)
             Picker("", selection: $showMap) {
                 Image(systemName: "circle.hexagongrid").tag(true)
                 Image(systemName: "list.bullet").tag(false)
