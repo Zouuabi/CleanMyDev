@@ -11,22 +11,73 @@ jobs:
   dmg:
     name: Build DMG and publish release
     runs-on: macos-26
+    env:
+      VERSION: ${{ github.ref_name }}
+      # Optional: set these repository secrets to ship a Developer ID signed + notarized build.
+      #   MACOS_CERT_P12        base64 of the Developer ID Application .p12
+      #   MACOS_CERT_PASSWORD   its password
+      #   MACOS_SIGN_IDENTITY   e.g. "Developer ID Application: Your Name (TEAMID)"
+      #   APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID   for notarytool
+      # Optional: TAP_GITHUB_TOKEN (fine-grained PAT with contents:write on Zouuabi/homebrew-tap) to bump the cask.
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+      HAS_TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.app || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
-      - name: Build Release (ad-hoc signed)
+
+      - name: Import Developer ID certificate
+        if: env.HAS_CERT == 'true'
+        env:
+          P12: ${{ secrets.MACOS_CERT_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN=$RUNNER_TEMP/build.keychain-db
+          security create-keychain -p ci "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p ci "$KEYCHAIN"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+
+      - name: Build Release (Developer ID)
+        if: env.HAS_CERT == 'true'
+        run: |
+          xcodebuild -project CleanMyDev.xcodeproj -scheme CleanMyDev -configuration Release \
+            -derivedDataPath build/dd build CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="${{ secrets.MACOS_SIGN_IDENTITY }}" DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime"
+
+      - name: Build Release (ad-hoc)
+        if: env.HAS_CERT != 'true'
         run: |
           xcodebuild -project CleanMyDev.xcodeproj -scheme CleanMyDev -configuration Release \
             -derivedDataPath build/dd build CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=""
+
       - name: Package DMG
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          V="${VERSION#v}"
           APP=build/dd/Build/Products/Release/CleanMyDev.app
           mkdir -p dist/root && cp -R "$APP" dist/root/CleanMyDev.app && ln -s /Applications dist/root/Applications
-          hdiutil create -volname "CleanMyDev $VERSION" -srcfolder dist/root -ov -format UDZO "dist/CleanMyDev-$VERSION.dmg"
-          cd dist && shasum -a 256 "CleanMyDev-$VERSION.dmg" > "CleanMyDev-$VERSION.dmg.sha256"
-      - name: Publish
+          hdiutil create -volname "CleanMyDev $V" -srcfolder dist/root -ov -format UDZO "dist/CleanMyDev-$V.dmg"
+
+      - name: Notarize and staple
+        if: env.HAS_CERT == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          V="${VERSION#v}"
+          xcrun notarytool submit "dist/CleanMyDev-$V.dmg" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "dist/CleanMyDev-$V.dmg"
+
+      - name: Checksum
+        run: cd dist && V="${VERSION#v}" && shasum -a 256 "CleanMyDev-$V.dmg" > "CleanMyDev-$V.dmg.sha256"
+
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -35,8 +86,23 @@ jobs:
           generate_release_notes: true
           body: |
             ## Install
-            1. Download the `.dmg`, open it, drag **CleanMyDev** to Applications.
-            2. First launch: **right-click → Open** (the build is not notarized), then grant **Full Disk Access** when the app asks.
-            3. Or from a terminal: `xattr -d com.apple.quarantine /Applications/CleanMyDev.app`
+            ```bash
+            brew install --cask zouuabi/tap/cleanmydev
+            ```
+            or download the `.dmg` below, drag **CleanMyDev** to Applications, and on first launch **right-click → Open** (unless this build is notarized). Then grant **Full Disk Access** when the app asks.
 
             Requires macOS 26 or later.
+
+      - name: Bump Homebrew cask
+        if: env.HAS_TAP_TOKEN == 'true'
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          V="${VERSION#v}"
+          SHA=$(awk '{print $1}' "dist/CleanMyDev-$V.dmg.sha256")
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/Zouuabi/homebrew-tap.git" tap
+          cd tap
+          sed -i '' -E "s/^  version \".*\"/  version \"$V\"/; s/^  sha256 \".*\"/  sha256 \"$SHA\"/" Casks/cleanmydev.rb
+          git config user.name "cleanmydev-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git commit -am "cleanmydev $V" && git push

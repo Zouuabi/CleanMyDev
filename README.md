@@ -16,6 +16,7 @@
   <img src="https://img.shields.io/badge/swift-6-orange?style=flat-square" alt="Swift 6" />
   <img src="https://img.shields.io/badge/telemetry-none-2DD4BF?style=flat-square" alt="No telemetry" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT" />
+  <a href="https://github.com/Zouuabi/homebrew-tap"><img src="https://img.shields.io/badge/brew-zouuabi%2Ftap%2Fcleanmydev-fbb040?style=flat-square" alt="Homebrew" /></a>
 </p>
 
 <p align="center">
@@ -60,9 +61,13 @@ Everything else a cleaner should do is here too, but with the same honesty: Dock
 
 ## Install
 
-Download the latest `.dmg` from [Releases](https://github.com/Zouuabi/CleanMyDev/releases/latest), open it, drag **CleanMyDev** to Applications.
+**Homebrew** (recommended, no Gatekeeper dance):
 
-The build is signed but not notarized (no Apple Developer Program behind it yet), so the first launch needs **right-click → Open**, or:
+```bash
+brew install --cask zouuabi/tap/cleanmydev
+```
+
+**Or the DMG**: download the latest `.dmg` from [Releases](https://github.com/Zouuabi/CleanMyDev/releases/latest), open it, drag **CleanMyDev** to Applications. The build is signed but not notarized yet, so the first launch needs **right-click → Open**, or:
 
 ```bash
 xattr -d com.apple.quarantine /Applications/CleanMyDev.app
